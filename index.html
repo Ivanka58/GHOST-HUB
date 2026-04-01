@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHOST-HUB: Stalker Protocol</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Scanline overlay -->
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+    
+    <!-- Boot sequence -->
+    <div id="boot-screen" class="boot-screen">
+        <div class="boot-content">
+            <div class="boot-line">Initializing GHOST-HUB v1.0...</div>
+            <div class="boot-line">Loading tactical modules...</div>
+            <div class="boot-line">Establishing secure connection...</div>
+            <div class="boot-line">[OK] CERBER-AUDIO loaded</div>
+            <div class="boot-line">[OK] QUILL-MESH loaded</div>
+            <div class="boot-line">[OK] BIO-LINK loaded</div>
+            <div class="boot-line">[OK] EMF-SCANNER loaded</div>
+            <div class="boot-line blink">SYSTEM READY</div>
+        </div>
+    </div>
+
+    <!-- Main Interface -->
+    <div id="main-interface" class="main-interface hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="status-block">
+                <span class="status-indicator"></span>
+                <span class="status-text">STATUS: OPERATIONAL</span>
+            </div>
+            <div class="logo-block">
+                <h1>GHOST-HUB <span class="version">v1.0</span></h1>
+                <div class="logo-subtitle">STALKER PROTOCOL</div>
+            </div>
+            <div class="coords-block">
+                <div id="clock">00:00:00 MSK</div>
+                <div id="gps">55.7558° N, 37.6173° E</div>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left Panel: Protocols -->
+            <aside class="left-panel">
+                <h3 class="panel-title">// ACTIVE PROTOCOLS</h3>
+                <div class="protocol-list">
+                    <div class="protocol-item active" data-protocol="cerber">
+                        <div class="protocol-icon">◉</div>
+                        <div class="protocol-info">
+                            <div class="protocol-name">CERBER-AUDIO</div>
+                            <div class="protocol-desc">Анализ частот</div>
+                        </div>
+                        <div class="protocol-status">ONLINE</div>
+                    </div>
+                    <div class="protocol-item active" data-protocol="quill">
+                        <div class="protocol-icon">◉</div>
+                        <div class="protocol-info">
+                            <div class="protocol-name">QUILL-MESH</div>
+                            <div class="protocol-desc">P2P связь</div>
+                        </div>
+                        <div class="protocol-status">ONLINE</div>
+                    </div>
+                    <div class="protocol-item active" data-protocol="bio">
+                        <div class="protocol-icon">◉</div>
+                        <div class="protocol-info">
+                            <div class="protocol-name">BIO-LINK</div>
+                            <div class="protocol-desc">Мониторинг пульса</div>
+                        </div>
+                        <div class="protocol-status">ONLINE</div>
+                    </div>
+                    <div class="protocol-item active" data-protocol="emf">
+                        <div class="protocol-icon">◉</div>
+                        <div class="protocol-info">
+                            <div class="protocol-name">EMF-SCANNER</div>
+                            <div class="protocol-desc">Электромагнитный фон</div>
+                        </div>
+                        <div class="protocol-status">ONLINE</div>
+                    </div>
+                </div>
+
+                <!-- EVP Analyzer Widget -->
+                <div class="widget evp-widget">
+                    <h4 class="widget-title">◈ EVP ANALYZER</h4>
+                    <canvas id="waveform" width="280" height="80"></canvas>
+                    <div class="evp-status">ИИ Cerber фильтрует паразитные шумы</div>
+                    <div class="evp-readiness">Готовность: <span class="highlight">100%</span></div>
+                </div>
+            </aside>
+
+            <!-- Center: Map & Content -->
+            <main class="center-panel">
+                <!-- Map View -->
+                <div id="map-view" class="view-section active">
+                    <div class="map-container">
+                        <canvas id="tactical-map" width="800" height="500"></canvas>
+                        <div class="map-overlay">
+                            <div class="waiting-text">Ожидание подключения группы...</div>
+                            <div class="map-grid"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Operations View -->
+                <div id="operations-view" class="view-section">
+                    <h2 class="section-title">// ОПЕРАЦИИ</h2>
+                    <div class="log-container">
+                        <div class="log-entry">
+                            <span class="log-time">[2026-03-15 14:30]</span>
+                            <span class="log-type">EXPEDITION</span>
+                            <span class="log-text">Дима: Разведка сектора 7. Аномальная активность зафиксирована.</span>
+                        </div>
+                        <div class="log-entry">
+                            <span class="log-time">[2026-03-14 09:15]</span>
+                            <span class="log-type">SCAN</span>
+                            <span class="log-text">Сударь: Полный радиационный фон в норме. EMF spikes в 300м.</span>
+                        </div>
+                        <div class="log-entry">
+                            <span class="log-time">[2026-03-12 22:45]</span>
+                            <span class="log-type">AUDIO</span>
+                            <span class="log-text">Полина: Запись EVP класса B. Требуется анализ Cerber.</span>
+                        </div>
+                        <div class="log-entry">
+                            <span class="log-time">[2026-03-10 16:20]</span>
+                            <span class="log-type">TECH</span>
+                            <span class="log-text">Чернец: Обновление прошивки QUILL-MESH. Стабильность +15%.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Archive View -->
+                <div id="archive-view" class="view-section">
+                    <h2 class="section-title">// АРХИВ НАСЛЕДИЯ</h2>
+                    <div class="classified-doc">
+                        <div class="doc-stamp">СОВЕРШЕННО СЕКРЕТНО</div>
+                        <div class="doc-header">ГРУ // ДОСЬЕ №774</div>
+                        <div class="doc-content">
+                            <p class="legacy-text">
+                                Мой дед спускался в урановые шахты, когда радиация была единственным спутником. 
+                                Я вырос на историях о том, как тишина может быть опаснее звука. 
+                                В моих генах — знание того, как работают приборы в зонах отчуждения. 
+                                Я создал GHOST-HUB не для развлечения, а как профессиональный инструмент 
+                                для тех, кто идет туда, куда другие боятся заглянуть.
+                            </p>
+                            <div class="doc-meta">
+                                <span>Автор: Иван</span>
+                                <span>Код: STALKER-GENE</span>
+                                <span>Доступ: РАЗРЕШЕН</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Technology View -->
+                <div id="tech-view" class="view-section">
+                    <h2 class="section-title">// ТЕХНОЛОГИЯ</h2>
+                    <div class="tech-grid">
+                        <div class="tech-card">
+                            <h3>CERBER NEURAL NET</h3>
+                            <p>Нейросеть для фильтрации аудио-паразитов. Обучена на 10,000+ часов записей из аномальных зон. Точность распознавания EVP: 94.7%</p>
+                            <div class="tech-stats">
+                                <div class="stat"><span>CPU:</span> <span>34%</span></div>
+                                <div class="stat"><span>RAM:</span> <span>2.4GB</span></div>
+                            </div>
+                        </div>
+                        <div class="tech-card">
+                            <h3>ШИФР MESSENGER</h3>
+                            <p>P2P протокол связи без центральных серверов. Использует mesh-топологию. Неуязвим для блокировок и перехвата.</p>
+                            <div class="tech-stats">
+                                <div class="stat"><span>NODES:</span> <span>4</span></div>
+                                <div class="stat"><span>LATENCY:</span> <span>12ms</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel: Mesh Status -->
+            <aside class="right-panel">
+                <h3 class="panel-title">// MESH-STATUS</h3>
+                <div class="mesh-list">
+                    <div class="mesh-node" data-user="dima">
+                        <div class="node-avatar">Д</div>
+                        <div class="node-info">
+                            <div class="node-name">Дима</div>
+                            <div class="node-role">Командир</div>
+                        </div>
+                        <div class="node-metrics">
+                            <div class="signal-bars">
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                            </div>
+                            <div class="battery">87%</div>
+                        </div>
+                    </div>
+                    <div class="mesh-node" data-user="sudar">
+                        <div class="node-avatar">С</div>
+                        <div class="node-info">
+                            <div class="node-name">Сударь</div>
+                            <div class="node-role">Техник</div>
+                        </div>
+                        <div class="node-metrics">
+                            <div class="signal-bars">
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                                <span class="bar"></span>
+                            </div>
+                            <div class="battery">64%</div>
+                        </div>
+                    </div>
+                    <div class="mesh-node" data-user="polina">
+                        <div class="node-avatar">П</div>
+                        <div class="node-info">
+                            <div class="node-name">Полина</div>
+                            <div class="node-role">Аналитик</div>
+                        </div>
+                        <div class="node-metrics">
+                            <div class="signal-bars">
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                            </div>
+                            <div class="battery">92%</div>
+                        </div>
+                    </div>
+                    <div class="mesh-node" data-user="chernets">
+                        <div class="node-avatar">Ч</div>
+                        <div class="node-info">
+                            <div class="node-name">Чернец</div>
+                            <div class="node-role">Связист</div>
+                        </div>
+                        <div class="node-metrics">
+                            <div class="signal-bars">
+                                <span class="bar active"></span>
+                                <span class="bar active"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                            </div>
+                            <div class="battery">45%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mesh-protocol">
+                    <div class="protocol-label">ПРОТОКОЛ ШИФР</div>
+                    <div class="protocol-status-text">Неуязвим для блокировок</div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <button class="nav-btn active" data-view="map">ГЛАВНАЯ</button>
+            <button class="nav-btn" data-view="operations">ОПЕРАЦИИ</button>
+            <button class="nav-btn" data-view="archive">АРХИВ НАСЛЕДИЯ</button>
+            <button class="nav-btn" data-view="tech">ТЕХНОЛОГИЯ</button>
+        </nav>
+
+        <!-- Contact Section -->
+        <div class="contact-section">
+            <button id="initiate-contact" class="contact-btn">
+                [ ИНИЦИИРОВАТЬ ПРЯМУЮ СВЯЗЬ С РАЗРАБОТЧИКОМ ]
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-text">
+                Разработано Иваном. Генетический код Сталкера. Логика превыше мистики. 2026.
+            </div>
+            <div class="footer-hash">SHA256: 8f4a2b...e9c1</div>
+        </footer>
+    </div>
+
+    <!-- Contact Modal -->
+    <div id="contact-modal" class="modal hidden">
+        <div class="modal-content terminal-style">
+            <div class="modal-header">
+                <span>SECURE CHANNEL ESTABLISHED</span>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="terminal-line">root@ghost-hub:~$ ./contact.sh</div>
+                <div class="terminal-line">Loading contact protocols...</div>
+                <div class="contact-links">
+                    <a href="https://t.me/username" target="_blank" class="contact-link">
+                        <span class="link-icon">></span>
+                        <span class="link-text">TELEGRAM: @username</span>
+                    </a>
+                    <a href="tel:+79990000000" class="contact-link">
+                        <span class="link-icon">></span>
+                        <span class="link-text">SECURE LINE: +7 (999) 000-00-00</span>
+                    </a>
+                    <a href="https://vk.com/username" target="_blank" class="contact-link">
+                        <span class="link-icon">></span>
+                        <span class="link-text">VK: vk.com/username</span>
+                    </a>
+                </div>
+                <div class="terminal-line blink">_</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+                          </html>
