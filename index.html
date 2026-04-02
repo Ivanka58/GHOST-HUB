@@ -18,18 +18,21 @@
     <div id="boot-screen" class="boot-screen">
         <div class="boot-content">
             <div class="boot-line">Initializing GHOST-HUB v2.0...</div>
-            <div class="boot-line">Loading tactical modules...</div>
-            <div class="boot-line">[OK] SPECTRO-SCAN loaded</div>
-            <div class="boot-line">[OK] ACCEL-TREMOR loaded</div>
-            <div class="boot-line">[OK] INCIDENT MARKER loaded</div>
-            <div class="boot-line">[OK] NIGHT-OPS loaded</div>
-            <div class="boot-line">[OK] DEAD-MAN SWITCH loaded</div>
+            <div class="boot-line">Loading SPECTRO-SCAN...</div>
+            <div class="boot-line">Loading ACCEL-TREMOR...</div>
+            <div class="boot-line">Loading INCIDENT MARKER...</div>
+            <div class="boot-line">Loading NIGHT-OPS FILTER...</div>
+            <div class="boot-line">Loading DEAD-MAN SWITCH...</div>
+            <div class="boot-line">[OK] All tactical modules loaded</div>
             <div class="boot-line blink">SYSTEM READY</div>
         </div>
     </div>
 
     <!-- Main Interface -->
     <div id="main-interface" class="main-interface hidden">
+        <!-- Night Ops Overlay -->
+        <div id="night-ops-overlay" class="night-ops-overlay hidden"></div>
+
         <!-- Header -->
         <header class="header">
             <div class="status-block">
@@ -42,36 +45,24 @@
             </div>
             <div class="coords-block">
                 <div id="clock">00:00:00</div>
-                <div id="gps">55.7558°N 37.6173°E</div>
+                <div id="gps">--.----°N --.----°E</div>
             </div>
         </header>
 
         <!-- Quick Actions Bar -->
         <div class="quick-actions">
-            <button id="night-ops-btn" class="quick-btn" title="Night Ops Filter">
-                <span class="quick-icon">◐</span>
-                <span class="quick-label">NIGHT</span>
+            <button id="incident-btn" class="action-btn incident">
+                <span class="btn-icon">!</span>
+                <span class="btn-text">LOG EVENT</span>
             </button>
-            <button id="incident-btn" class="quick-btn incident" title="Log Incident">
-                <span class="quick-icon">⚠</span>
-                <span class="quick-label">LOG</span>
+            <button id="night-ops-btn" class="action-btn night-ops">
+                <span class="btn-icon">◉</span>
+                <span class="btn-text">NIGHT OPS</span>
             </button>
-            <button id="deadman-btn" class="quick-btn deadman" title="Dead Man Switch">
-                <span class="quick-icon">◈</span>
-                <span class="quick-label">DMS</span>
+            <button id="deadman-btn" class="action-btn deadman">
+                <span class="btn-icon">◈</span>
+                <span class="btn-text">SAFETY</span>
             </button>
-        </div>
-
-        <!-- Dead Man Switch Panel -->
-        <div id="deadman-panel" class="deadman-panel hidden">
-            <div class="dms-header">
-                <span class="dms-title">DEAD-MAN SWITCH</span>
-                <button class="dms-close">×</button>
-            </div>
-            <div class="dms-timer" id="dms-timer">30:00</div>
-            <div class="dms-status" id="dms-status">ОЖИДАНИЕ АКТИВАЦИИ</div>
-            <button id="dms-arm" class="dms-arm-btn">АКТИВИРОВАТЬ</button>
-            <button id="dms-safe" class="dms-safe-btn hidden">I AM SAFE</button>
         </div>
 
         <!-- Mobile Navigation -->
@@ -80,17 +71,17 @@
                 <span class="nav-icon">⌖</span>
                 <span class="nav-label">КАРТА</span>
             </button>
-            <button class="nav-btn" data-view="sensors">
+            <button class="nav-btn" data-view="spectro">
+                <span class="nav-icon">▓</span>
+                <span class="nav-label">СПЕКТР</span>
+            </button>
+            <button class="nav-btn" data-view="tremor">
+                <span class="nav-icon">≃</span>
+                <span class="nav-label">СЕЙСМО</span>
+            </button>
+            <button class="nav-btn" data-view="protocols">
                 <span class="nav-icon">◉</span>
-                <span class="nav-label">ДАТЧИКИ</span>
-            </button>
-            <button class="nav-btn" data-view="operations">
-                <span class="nav-icon">▤</span>
-                <span class="nav-label">ЛОГ</span>
-            </button>
-            <button class="nav-btn" data-view="archive">
-                <span class="nav-icon">▣</span>
-                <span class="nav-label">АРХИВ</span>
+                <span class="nav-label">СИСТЕМЫ</span>
             </button>
             <button class="nav-btn" data-view="team">
                 <span class="nav-icon">◈</span>
@@ -102,16 +93,10 @@
         <main class="content-area">
             <!-- Map View -->
             <div id="map-view" class="view-section active">
-                <!-- Incident Button Overlay -->
-                <button id="incident-marker" class="incident-marker">
-                    <span class="marker-icon">⚠</span>
-                    <span class="marker-text">LOG EVENT</span>
-                </button>
-
                 <div class="map-container">
                     <canvas id="tactical-map"></canvas>
                     <div class="map-overlay">
-                        <div class="waiting-text">СЕКТОР 7-АЛЬФА</div>
+                        <div class="waiting-text">СКАНИРОВАНИЕ СЕКТОРА...</div>
                     </div>
                 </div>
                 <div class="map-info">
@@ -121,248 +106,217 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">АКТИВНОСТЬ:</span>
-                        <span class="info-value warning">МОНИТОРИНГ</span>
+                        <span class="info-value warning">НЕТ ДАННЫХ</span>
                     </div>
                 </div>
-
-                <!-- Recent Incidents -->
-                <div class="incidents-preview">
+                
+                <!-- Incident Log Preview -->
+                <div class="incident-preview">
                     <h3 class="subsection-title">◈ ПОСЛЕДНИЕ СОБЫТИЯ</h3>
-                    <div id="incidents-list" class="incidents-list">
-                        <div class="no-incidents">Нет зафиксированных событий</div>
+                    <div id="incident-list" class="incident-list">
+                        <div class="incident-empty">Нет зафиксированных событий</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Sensors View (NEW) -->
-            <div id="sensors-view" class="view-section">
-                <h2 class="section-title">// СЕНСОРЫ</h2>
+            <!-- Spectro Scan View -->
+            <div id="spectro-view" class="view-section">
+                <div class="spectro-header">
+                    <h2 class="section-title">// SPECTRO-SCAN</h2>
+                    <div class="spectro-status">
+                        <span class="status-dot active"></span>
+                        <span class="status-text">АНАЛИЗ АКТИВЕН</span>
+                    </div>
+                </div>
+                
+                <div class="spectro-info">
+                    <div class="freq-range">20Гц — 50Гц (ИНФРАЗВУК)</div>
+                    <div class="anomaly-counter">Аномалий: <span id="anomaly-count">0</span></div>
+                </div>
 
-                <!-- SPECTRO-SCAN -->
-                <div class="sensor-card">
-                    <div class="sensor-header">
-                        <div class="sensor-icon">◉</div>
-                        <div class="sensor-title">
-                            <div class="sensor-name">SPECTRO-SCAN</div>
-                            <div class="sensor-desc">Спектральный анализатор</div>
-                        </div>
-                        <div class="sensor-status active">ONLINE</div>
-                    </div>
-                    <canvas id="spectrogram" class="spectrogram-canvas"></canvas>
-                    <div class="spectro-info">
-                        <div class="freq-range">
-                            <span>20Hz</span>
-                            <div class="freq-bar"></div>
-                            <span>20kHz</span>
-                        </div>
-                        <div class="anomaly-detector" id="anomaly-detector">
-                            <span class="detector-label">ИНФРАЗВУК:</span>
-                            <span class="detector-value" id="anomaly-status">НОРМА</span>
-                        </div>
-                    </div>
+                <div class="spectro-container">
+                    <canvas id="spectrogram"></canvas>
                     <div class="spectro-legend">
                         <div class="legend-item">
                             <span class="legend-color low"></span>
-                            <span>Фон</span>
+                            <span>Норма</span>
                         </div>
                         <div class="legend-item">
                             <span class="legend-color mid"></span>
-                            <span>Голос</span>
+                            <span>Шум</span>
                         </div>
                         <div class="legend-item">
                             <span class="legend-color high"></span>
-                            <span>АНОМАЛИЯ</span>
+                            <span>Аномалия</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- ACCEL-TREMOR -->
-                <div class="sensor-card">
-                    <div class="sensor-header">
-                        <div class="sensor-icon">◉</div>
-                        <div class="sensor-title">
-                            <div class="sensor-name">ACCEL-TREMOR</div>
-                            <div class="sensor-desc">Сейсмограф / Акселерометр</div>
-                        </div>
-                        <div class="sensor-status" id="accel-status">ОЖИДАНИЕ</div>
+                <div class="spectro-analysis">
+                    <div class="analysis-line">
+                        <span class="analysis-label">ИИ Cerber:</span>
+                        <span id="cerber-status" class="analysis-value">Сканирование...</span>
                     </div>
-                    <canvas id="seismograph" class="seismo-canvas"></canvas>
-                    <div class="seismo-info">
-                        <div class="axis-labels">
-                            <span class="axis-x">X</span>
-                            <span class="axis-y">Y</span>
-                            <span class="axis-z">Z</span>
+                    <div class="analysis-detail" id="cerber-detail">
+                        Ожидание входных данных с микрофона...
+                    </div>
+                </div>
+
+                <div class="audio-controls">
+                    <button id="toggle-audio" class="control-btn">
+                        <span>▶ НАЧАТЬ ЗАПИСЬ</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tremor View -->
+            <div id="tremor-view" class="view-section">
+                <div class="tremor-header">
+                    <h2 class="section-title">// ACCEL-TREMOR</h2>
+                    <div class="tremor-status">
+                        <span class="status-dot active"></span>
+                        <span class="status-text">ДАТЧИКИ АКТИВНЫ</span>
+                    </div>
+                </div>
+
+                <div class="tremor-info">
+                    <div class="tremor-desc">Микро-вибрации пола и стен</div>
+                    <div class="sensitivity-control">
+                        <span>Чувствительность:</span>
+                        <input type="range" id="sensitivity" min="1" max="10" value="5">
+                    </div>
+                </div>
+
+                <div class="tremor-display">
+                    <canvas id="seismograph"></canvas>
+                    <div class="axis-labels">
+                        <div class="axis x">X (вперед-назад)</div>
+                        <div class="axis y">Y (влево-вправо)</div>
+                        <div class="axis z">Z (вверх-вниз)</div>
+                    </div>
+                </div>
+
+                <div class="tremor-metrics">
+                    <div class="metric">
+                        <span class="metric-label">МАГНИТУДА:</span>
+                        <span id="magnitude" class="metric-value">0.00</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">ПОРОГ:</span>
+                        <span id="threshold" class="metric-value">0.50</span>
+                    </div>
+                </div>
+
+                <div class="tremor-alert" id="tremor-alert">
+                    <span class="alert-icon">⚠</span>
+                    <span class="alert-text">ВИБРАЦИЯ ОБНАРУЖЕНА</span>
+                </div>
+
+                <div class="tremor-log" id="tremor-log">
+                    <div class="log-title">Журнал детектирования:</div>
+                    <div class="log-entries" id="tremor-entries">
+                        <div class="entry-empty">Нет данных</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Protocols View -->
+            <div id="protocols-view" class="view-section">
+                <h2 class="section-title">// АКТИВНЫЕ ПРОТОКОЛЫ</h2>
+                
+                <div class="protocol-list">
+                    <div class="protocol-card active" data-protocol="cerber">
+                        <div class="protocol-header">
+                            <div class="protocol-icon">◉</div>
+                            <div class="protocol-title">
+                                <div class="protocol-name">CERBER-AUDIO</div>
+                                <div class="protocol-desc">Анализ частот</div>
+                            </div>
+                            <div class="protocol-toggle">ON</div>
                         </div>
-                        <div class="sensitivity-control">
-                            <span>Чувствительность:</span>
-                            <input type="range" id="sensitivity" min="1" max="10" value="5">
+                        <div class="protocol-details">
+                            <div class="detail-row">
+                                <span>Частота:</span>
+                                <span class="freq-value">19.47 kHz</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Фильтр:</span>
+                                <span class="status-ok">АКТИВЕН</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="seismo-readout" id="seismo-readout">
-                        <div class="readout-row">
-                            <span>X:</span>
-                            <span id="val-x">0.00</span>
-                            <span class="unit">m/s²</span>
+
+                    <div class="protocol-card active" data-protocol="quill">
+                        <div class="protocol-header">
+                            <div class="protocol-icon">◉</div>
+                            <div class="protocol-title">
+                                <div class="protocol-name">QUILL-MESH</div>
+                                <div class="protocol-desc">P2P связь</div>
+                            </div>
+                            <div class="protocol-toggle">ON</div>
                         </div>
-                        <div class="readout-row">
-                            <span>Y:</span>
-                            <span id="val-y">0.00</span>
-                            <span class="unit">m/s²</span>
+                        <div class="protocol-details">
+                            <div class="detail-row">
+                                <span>Узлы:</span>
+                                <span>4/4</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Шифрование:</span>
+                                <span class="status-ok">AES-256</span>
+                            </div>
                         </div>
-                        <div class="readout-row">
-                            <span>Z:</span>
-                            <span id="val-z">0.00</span>
-                            <span class="unit">m/s²</span>
+                    </div>
+
+                    <div class="protocol-card active" data-protocol="bio">
+                        <div class="protocol-header">
+                            <div class="protocol-icon">◉</div>
+                            <div class="protocol-title">
+                                <div class="protocol-name">BIO-LINK</div>
+                                <div class="protocol-desc">Мониторинг пульса</div>
+                            </div>
+                            <div class="protocol-toggle">ON</div>
+                        </div>
+                        <div class="protocol-details">
+                            <div class="detail-row">
+                                <span>Пульс:</span>
+                                <span class="pulse-value">72 BPM</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Статус:</span>
+                                <span class="status-ok">НОРМА</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="protocol-card active" data-protocol="emf">
+                        <div class="protocol-header">
+                            <div class="protocol-icon">◉</div>
+                            <div class="protocol-title">
+                                <div class="protocol-name">EMF-SCANNER</div>
+                                <div class="protocol-desc">Электромагнитный фон</div>
+                            </div>
+                            <div class="protocol-toggle">ON</div>
+                        </div>
+                        <div class="protocol-details">
+                            <div class="detail-row">
+                                <span>Уровень:</span>
+                                <span class="emf-value">0.03 μT</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Датчик:</span>
+                                <span class="status-ok">КАЛИБРОВАН</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- EVP Analyzer (old) -->
-                <div class="sensor-card">
-                    <div class="sensor-header">
-                        <div class="sensor-icon">◉</div>
-                        <div class="sensor-title">
-                            <div class="sensor-name">CERBER-AUDIO</div>
-                            <div class="sensor-desc">Классический осциллограф</div>
-                        </div>
-                        <div class="sensor-status active">ONLINE</div>
-                    </div>
-                    <canvas id="waveform" class="waveform-canvas"></canvas>
+                <!-- EVP Widget -->
+                <div class="evp-section">
+                    <h3 class="subsection-title">◈ EVP ANALYZER</h3>
+                    <canvas id="waveform"></canvas>
                     <div class="evp-info">
                         <div class="evp-status">ИИ Cerber фильтрует шумы</div>
                         <div class="evp-ready">Готовность: <span>100%</span></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Operations View -->
-            <div id="operations-view" class="view-section">
-                <h2 class="section-title">// ЖУРНАЛ ОПЕРАЦИЙ</h2>
-                
-                <div class="log-filters">
-                    <button class="filter-btn active" data-filter="all">ВСЕ</button>
-                    <button class="filter-btn" data-filter="exp">ЭКСП</button>
-                    <button class="filter-btn" data-filter="tech">ТЕХ</button>
-                    <button class="filter-btn" data-filter="audio">АУДИО</button>
-                    <button class="filter-btn" data-filter="incident">⚠</button>
-                </div>
-
-                <div class="log-container" id="log-container">
-                    <div class="log-entry" data-type="exp">
-                        <div class="log-header">
-                            <span class="log-date">15.03.26</span>
-                            <span class="log-type">EXPEDITION</span>
-                        </div>
-                        <div class="log-author">Дима:</div>
-                        <div class="log-text">Разведка сектора 7. Аномальная активность зафиксирована в точке 4.</div>
-                    </div>
-
-                    <div class="log-entry" data-type="tech">
-                        <div class="log-header">
-                            <span class="log-date">14.03.26</span>
-                            <span class="log-type">TECH</span>
-                        </div>
-                        <div class="log-author">Сударь:</div>
-                        <div class="log-text">Радиационный фон в норме. EMF spikes на отметке 300м.</div>
-                    </div>
-
-                    <div class="log-entry" data-type="audio">
-                        <div class="log-header">
-                            <span class="log-date">12.03.26</span>
-                            <span class="log-type">AUDIO</span>
-                        </div>
-                        <div class="log-author">Полина:</div>
-                        <div class="log-text">Запись EVP класса B. Требуется анализ Cerber.</div>
-                    </div>
-
-                    <div class="log-entry" data-type="tech">
-                        <div class="log-header">
-                            <span class="log-date">10.03.26</span>
-                            <span class="log-type">TECH</span>
-                        </div>
-                        <div class="log-author">Чернец:</div>
-                        <div class="log-text">Обновление QUILL-MESH. Стабильность +15%.</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Archive View -->
-            <div id="archive-view" class="view-section">
-                <h2 class="section-title">// АРХИВ НАСЛЕДИЯ</h2>
-                
-                <div class="classified-banner">
-                    <div class="banner-stripe"></div>
-                    <div class="banner-text">СОВЕРШЕННО СЕКРЕТНО</div>
-                    <div class="banner-stripe"></div>
-                </div>
-
-                <div class="classified-doc">
-                    <div class="doc-header">
-                        <div class="doc-id">ГРУ // ДОСЬЕ №774</div>
-                        <div class="doc-date">ДАТА: [РЕДАКТИРОВАНО]</div>
-                    </div>
-                    
-                    <div class="doc-content">
-                        <p class="legacy-text">
-                            Мой дед спускался в урановые шахты, когда радиация была единственным спутником. 
-                            Я вырос на историях о том, как тишина может быть опаснее звука.
-                        </p>
-                        <p class="legacy-text">
-                            В моих генах — знание того, как работают приборы в зонах отчуждения. 
-                            Я создал GHOST-HUB не для развлечения, а как профессиональный инструмент 
-                            для тех, кто идет туда, куда другие боятся заглянуть.
-                        </p>
-                    </div>
-
-                    <div class="doc-footer">
-                        <div class="footer-item">
-                            <span class="label">АВТОР:</span>
-                            <span class="value">Иван</span>
-                        </div>
-                        <div class="footer-item">
-                            <span class="label">КОД:</span>
-                            <span class="value">STALKER-GENE</span>
-                        </div>
-                        <div class="footer-item">
-                            <span class="label">ДОСТУП:</span>
-                            <span class="value success">РАЗРЕШЕН</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tech-section">
-                    <h3 class="subsection-title">◈ ТЕХНОЛОГИИ</h3>
-                    
-                    <div class="tech-card">
-                        <div class="tech-header">
-                            <span class="tech-name">SPECTRO-SCAN</span>
-                            <span class="tech-status">●</span>
-                        </div>
-                        <p class="tech-desc">3D-спектрограмма с детекцией инфразвуковых аномалий. Диапазон 20Гц-50Гц.</p>
-                    </div>
-
-                    <div class="tech-card">
-                        <div class="tech-header">
-                            <span class="tech-name">ACCEL-TREMOR</span>
-                            <span class="tech-status">●</span>
-                        </div>
-                        <p class="tech-desc">Микровибрационный анализ. Чувствительность до 0.01 m/s².</p>
-                    </div>
-
-                    <div class="tech-card">
-                        <div class="tech-header">
-                            <span class="tech-name">CERBER NEURAL NET</span>
-                            <span class="tech-status">●</span>
-                        </div>
-                        <p class="tech-desc">Нейросеть для фильтрации аудио-паразитов. Точность 94.7%.</p>
-                    </div>
-
-                    <div class="tech-card">
-                        <div class="tech-header">
-                            <span class="tech-name">ШИФР MESSENGER</span>
-                            <span class="tech-status">●</span>
-                        </div>
-                        <p class="tech-desc">P2P протокол без центральных серверов. Mesh-топология.</p>
                     </div>
                 </div>
             </div>
@@ -520,13 +474,6 @@
             </div>
         </main>
 
-        <!-- Contact Button -->
-        <div class="contact-section">
-            <button id="initiate-contact" class="contact-btn">
-                [ СВЯЗЬ С РАЗРАБОТЧИКОМ ]
-            </button>
-        </div>
-
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-main">
@@ -536,6 +483,72 @@
                 Логика превыше мистики. 2026.
             </div>
         </footer>
+    </div>
+
+    <!-- Incident Modal -->
+    <div id="incident-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">◈ INCIDENT MARKED</span>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="incident-data">
+                    <div class="data-row">
+                        <span class="data-label">ВРЕМЯ:</span>
+                        <span id="incident-time" class="data-value">--:--:--</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">КООРД:</span>
+                        <span id="incident-coords" class="data-value">--.---- --.----</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">EMF:</span>
+                        <span id="incident-emf" class="data-value">-- μT</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">ШУМ:</span>
+                        <span id="incident-noise" class="data-value">-- dB</span>
+                    </div>
+                </div>
+                <div class="incident-note">
+                    Событие сохранено в локальный журнал
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dead Man Switch Modal -->
+    <div id="deadman-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content alert">
+            <div class="modal-header alert">
+                <span class="modal-title">◈ DEAD-MAN SWITCH</span>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="timer-display" id="deadman-timer">30:00</div>
+                <div class="timer-label">ДО АВТОМАТИЧЕСКОЙ ОТПРАВКИ ТРЕВОГИ</div>
+                
+                <div class="deadman-info">
+                    <p>При срабатывании будет отправлено:</p>
+                    <ul>
+                        <li>Последние GPS-координаты</li>
+                        <li>Аудиозапись последних 10 секунд</li>
+                        <li>Статус всех датчиков</li>
+                    </ul>
+                </div>
+
+                <button id="reset-timer" class="reset-btn">
+                    [ Я В ПОРЯДКЕ - СБРОСИТЬ ТАЙМЕР ]
+                </button>
+                
+                <button id="start-timer" class="start-btn hidden">
+                    [ АКТИВИРОВАТЬ ПРОТОКОЛ ]
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Contact Modal -->
@@ -584,4 +597,4 @@
 
     <script src="script.js"></script>
 </body>
-                </html>
+    </html>
