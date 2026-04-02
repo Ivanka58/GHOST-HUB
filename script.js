@@ -16,11 +16,12 @@ document.addEventListener('DOMContentLoaded', () => {
         initMap();
         initWaveform();
         initSpectrogram();
-        initTremor();
         initNavigation();
         initQuickActions();
         initProtocols();
         initGeolocation();
+        // Tremor инициализируется отдельно после проверки разрешений
+        initTremorWithPermission();
     }
 
     // Clock
@@ -324,12 +325,53 @@ document.addEventListener('DOMContentLoaded', () => {
         draw();
     }
 
-    // Tremor (ACCEL-TREMOR)
-    function initTremor() {
+    // Tremor с запросом разрешения для iOS
+    function initTremorWithPermission() {
         const canvas = document.getElementById('seismograph');
         if (!canvas) return;
-        
+
+        // Проверяем, нужно ли запрашивать разрешение (iOS 13+)
+        if (typeof DeviceMotionEvent !== 'undefined' && 
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+            
+            // Создаем кнопку для запроса разрешения
+            const permissionBtn = document.createElement('button');
+            permissionBtn.className = 'control-btn';
+            permissionBtn.innerHTML = '<span>🔓 РАЗРЕШИТЬ ДАТЧИКИ</span>';
+            permissionBtn.style.marginBottom = '10px';
+            permissionBtn.style.width = '100%';
+            
+            const container = canvas.parentElement;
+            container.insertBefore(permissionBtn, canvas);
+            
+            permissionBtn.addEventListener('click', () => {
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            permissionBtn.remove();
+                            initTremor(true); // Реальные датчики
+                        } else {
+                            permissionBtn.innerHTML = '<span>❌ ДОСТУП ЗАПРЕЩЕН</span>';
+                            permissionBtn.style.background = '#FF3333';
+                            setTimeout(() => {
+                                permissionBtn.remove();
+                                initTremor(false); // Симуляция
+                            }, 1500);
+                        }
+                    })
+                    .catch(console.error);
+            });
+        } else {
+            // Android или старый iOS - запускаем сразу
+            initTremor(true);
+        }
+    }
+
+    // Tremor (ACCEL-TREMOR)
+    function initTremor(useRealSensors) {
+        const canvas = document.getElementById('seismograph');
         const ctx = canvas.getContext('2d');
+        
         canvas.width = canvas.offsetWidth || 300;
         canvas.height = canvas.offsetHeight || 180;
 
@@ -339,30 +381,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxHistory = 100;
         let sensitivity = 5;
         let lastUpdate = Date.now();
+        let isSimulating = !useRealSensors;
 
-        // Try to get real accelerometer data
-        if (window.DeviceMotionEvent) {
+        // Реальные датчики
+        if (useRealSensors && window.DeviceMotionEvent) {
             window.addEventListener('devicemotion', (event) => {
                 const acc = event.accelerationIncludingGravity;
-                if (acc) {
-                    updateTremorData(acc.x || 0, acc.y || 0, acc.z || 0);
+                if (acc && acc.x !== null) {
+                    isSimulating = false;
+                    updateTremorData(acc.x, acc.y, acc.z || 9.8);
                 }
             });
         }
 
-        // Simulate data if no real sensor
+        // Симуляция если нет реальных данных
         function simulateTremor() {
+            if (!isSimulating) return;
+            
             const now = Date.now();
-            if (now - lastUpdate > 100) {
-                const noise = () => (Math.random() - 0.5) * sensitivity * 0.5;
-                updateTremorData(noise(), noise(), noise() + 9.8);
+            if (now - lastUpdate > 50) {
+                // Генерируем случайные микро-движения
+                const baseNoise = () => (Math.random() - 0.5) * 0.5;
+                const occasionalSpike = Math.random() > 0.98 ? (Math.random() - 0.5) * sensitivity : 0;
+                
+                updateTremorData(
+                    baseNoise() + occasionalSpike,
+                    baseNoise() + occasionalSpike * 0.5,
+                    9.8 + baseNoise() + occasionalSpike * 0.3
+                );
                 lastUpdate = now;
             }
             requestAnimationFrame(simulateTremor);
         }
-        simulateTremor();
+        
+        if (isSimulating) {
+            simulateTremor();
+        }
 
         function updateTremorData(x, y, z) {
+            // Нормализуем null значения
+            x = x || 0;
+            y = y || 0;
+            z = z || 9.8;
+
             if (historyX.length >= maxHistory) {
                 historyX.shift();
                 historyY.shift();
@@ -372,19 +433,22 @@ document.addEventListener('DOMContentLoaded', () => {
             historyY.push(y);
             historyZ.push(z);
 
-            // Calculate magnitude
-            const mag = Math.sqrt(x*x + y*y + z*z);
+            // Магнитуда без гравитации (приблизительно)
+            const mag = Math.sqrt(x*x + y*y + (z-9.8)*(z-9.8));
             const magEl = document.getElementById('magnitude');
             if (magEl) magEl.textContent = mag.toFixed(2);
 
-            // Check threshold
-            const threshold = sensitivity * 0.3;
-            document.getElementById('threshold').textContent = threshold.toFixed(2);
+            // Порог срабатывания
+            const threshold = sensitivity * 0.15;
+            const thresholdEl = document.getElementById('threshold');
+            if (thresholdEl) thresholdEl.textContent = threshold.toFixed(2);
             
             const alertEl = document.getElementById('tremor-alert');
             if (mag > threshold && alertEl) {
-                alertEl.classList.add('active');
-                addTremorLog(mag.toFixed(2));
+                if (!alertEl.classList.contains('active')) {
+                    alertEl.classList.add('active');
+                    addTremorLog(mag.toFixed(2));
+                }
             } else if (alertEl) {
                 alertEl.classList.remove('active');
             }
@@ -409,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Sensitivity slider
+        // Ползунок чувствительности
         const slider = document.getElementById('sensitivity');
         if (slider) {
             slider.addEventListener('input', (e) => {
@@ -422,9 +486,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             const centerY = canvas.height / 2;
-            const scale = canvas.height / 20;
+            const scale = canvas.height / 25; // Масштаб для видимости
 
-            // Draw grid
+            // Сетка
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.lineWidth = 1;
             for (let y = 0; y < canvas.height; y += 20) {
@@ -434,25 +498,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.stroke();
             }
 
-            // Draw axes
-            function drawAxis(history, color, offset) {
+            // Рисуем оси
+            function drawAxis(history, color, offset, label) {
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 
                 for (let i = 0; i < history.length; i++) {
                     const x = (i / maxHistory) * canvas.width;
-                    const y = centerY + (history[i] - offset) * scale;
+                    const val = history[i] - offset;
+                    const y = centerY + val * scale;
                     
                     if (i === 0) ctx.moveTo(x, y);
                     else ctx.lineTo(x, y);
                 }
                 ctx.stroke();
+
+                // Подпись оси
+                if (history.length > 0) {
+                    ctx.fillStyle = color;
+                    ctx.font = '10px JetBrains Mono';
+                    const lastVal = history[history.length - 1] - offset;
+                    const yPos = centerY + lastVal * scale;
+                    ctx.fillText(label, canvas.width - 20, yPos - 5);
+                }
             }
 
-            drawAxis(historyX, '#FF6666', 0);
-            drawAxis(historyY, '#66FF66', 0);
-            drawAxis(historyZ, '#6699FF', 9.8);
+            drawAxis(historyX, '#FF6666', 0, 'X');
+            drawAxis(historyY, '#66FF66', 0, 'Y');
+            drawAxis(historyZ, '#6699FF', 9.8, 'Z');
+
+            // Центральная линия
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
 
             requestAnimationFrame(draw);
         }
@@ -520,9 +602,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (nightOpsBtn && nightOverlay) {
             nightOpsBtn.addEventListener('click', () => {
-                const isActive = nightOverlay.classList.toggle('hidden');
-                nightOpsBtn.classList.toggle('active', !isActive);
-                document.body.classList.toggle('night-mode', !isActive);
+                const isHidden = !nightOverlay.classList.contains('hidden');
+                nightOverlay.classList.toggle('hidden', isHidden);
+                nightOpsBtn.classList.toggle('active', !isHidden);
+                document.body.classList.toggle('night-mode', !isHidden);
             });
         }
 
@@ -530,7 +613,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const deadmanBtn = document.getElementById('deadman-btn');
         const deadmanModal = document.getElementById('deadman-modal');
         let timerInterval = null;
-        let timeLeft = 1800; // 30 minutes in seconds
+        let timeLeft = 1800;
+        let isTimerRunning = false;
         
         if (deadmanBtn && deadmanModal) {
             deadmanBtn.addEventListener('click', () => {
@@ -552,6 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 startBtn.addEventListener('click', () => {
                     startBtn.classList.add('hidden');
                     resetBtn.classList.remove('hidden');
+                    isTimerRunning = true;
                     startTimer();
                 });
             }
@@ -560,6 +645,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetBtn.addEventListener('click', () => {
                     timeLeft = 1800;
                     updateTimerDisplay();
+                    // Вибрация при сбросе
+                    if (navigator.vibrate) navigator.vibrate(200);
                 });
             }
         }
@@ -567,8 +654,14 @@ document.addEventListener('DOMContentLoaded', () => {
         function startTimer() {
             if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
+                if (!isTimerRunning) return;
                 timeLeft--;
                 updateTimerDisplay();
+                
+                if (timeLeft <= 300) { // 5 минут - предупреждение
+                    const timerEl = document.getElementById('deadman-timer');
+                    if (timerEl) timerEl.style.color = '#FFAA00';
+                }
                 
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
@@ -581,11 +674,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const mins = Math.floor(timeLeft / 60).toString().padStart(2, '0');
             const secs = (timeLeft % 60).toString().padStart(2, '0');
             const display = document.getElementById('deadman-timer');
-            if (display) display.textContent = `${mins}:${secs}`;
+            if (display) {
+                display.textContent = `${mins}:${secs}`;
+                if (timeLeft > 300) display.style.color = '#FF3333';
+            }
         }
         
         function triggerDeadManAlert() {
-            alert('DEAD MAN SWITCH ACTIVATED!\nОтправка координат команде...');
+            // Вибрация тревоги
+            if (navigator.vibrate) {
+                navigator.vibrate([500, 200, 500, 200, 1000]);
+            }
+            
+            alert('⚠ DEAD MAN SWITCH ACTIVATED!\n\nОтправка тревоги команде:\n• Последние GPS-координаты\n• Аудиозапись последних 10 сек\n• Статус всех датчиков');
         }
     }
 
