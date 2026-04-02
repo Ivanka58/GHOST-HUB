@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GHOST-HUB: Stalker Protocol</title>
+    <title>GHOST-HUB: Stalker Protocol v3.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
@@ -17,14 +17,14 @@
     <!-- Boot sequence -->
     <div id="boot-screen" class="boot-screen">
         <div class="boot-content">
-            <div class="boot-line">Initializing GHOST-HUB v2.0...</div>
-            <div class="boot-line">Loading SPECTRO-SCAN...</div>
-            <div class="boot-line">Loading ACCEL-TREMOR...</div>
-            <div class="boot-line">Loading INCIDENT MARKER...</div>
-            <div class="boot-line">Loading NIGHT-OPS FILTER...</div>
-            <div class="boot-line">Loading DEAD-MAN SWITCH...</div>
-            <div class="boot-line">[OK] All tactical modules loaded</div>
-            <div class="boot-line blink">SYSTEM READY</div>
+            <div class="boot-line">Initializing GHOST-HUB v3.0...</div>
+            <div class="boot-line">Loading CERBER-AUDIO ENGINE...</div>
+            <div class="boot-line">Loading QUILL-CHAT PROTOCOL...</div>
+            <div class="boot-line">Loading VOICE COMMANDER...</div>
+            <div class="boot-line">Loading EVIDENCE VAULT...</div>
+            <div class="boot-line">Loading SENSOR-HUB...</div>
+            <div class="boot-line">[OK] All systems operational</div>
+            <div class="boot-line blink">ABSOLUTE CONTROL ENABLED</div>
         </div>
     </div>
 
@@ -32,6 +32,12 @@
     <div id="main-interface" class="main-interface hidden">
         <!-- Night Ops Overlay -->
         <div id="night-ops-overlay" class="night-ops-overlay hidden"></div>
+
+        <!-- Voice Status Indicator -->
+        <div id="voice-status" class="voice-status hidden">
+            <div class="voice-icon">🎤</div>
+            <div class="voice-text">СЛУШАЮ...</div>
+        </div>
 
         <!-- Header -->
         <header class="header">
@@ -41,7 +47,7 @@
             </div>
             <div class="logo-block">
                 <h1>GHOST-HUB</h1>
-                <div class="logo-subtitle">v2.0</div>
+                <div class="logo-subtitle">v3.0</div>
             </div>
             <div class="coords-block">
                 <div id="clock">00:00:00</div>
@@ -55,6 +61,10 @@
                 <span class="btn-icon">!</span>
                 <span class="btn-text">LOG EVENT</span>
             </button>
+            <button id="voice-cmd-btn" class="action-btn voice">
+                <span class="btn-icon">🎤</span>
+                <span class="btn-text">ГОЛОС</span>
+            </button>
             <button id="night-ops-btn" class="action-btn night-ops">
                 <span class="btn-icon">◉</span>
                 <span class="btn-text">NIGHT OPS</span>
@@ -63,6 +73,12 @@
                 <span class="btn-icon">◈</span>
                 <span class="btn-text">SAFETY</span>
             </button>
+        </div>
+
+        <!-- Dead Man Mini Display -->
+        <div id="deadman-mini" class="deadman-mini hidden">
+            <div class="mini-timer" id="mini-timer">30:00</div>
+            <button id="mini-reset" class="mini-reset">Я В ПОРЯДКЕ</button>
         </div>
 
         <!-- Mobile Navigation -->
@@ -79,13 +95,17 @@
                 <span class="nav-icon">≃</span>
                 <span class="nav-label">СЕЙСМО</span>
             </button>
-            <button class="nav-btn" data-view="protocols">
+            <button class="nav-btn" data-view="audio">
                 <span class="nav-icon">◉</span>
-                <span class="nav-label">СИСТЕМЫ</span>
+                <span class="nav-label">АУДИО</span>
             </button>
-            <button class="nav-btn" data-view="team">
-                <span class="nav-icon">◈</span>
-                <span class="nav-label">КОМАНДА</span>
+            <button class="nav-btn" data-view="chat">
+                <span class="nav-icon">✉</span>
+                <span class="nav-label">ЧАТ</span>
+            </button>
+            <button class="nav-btn" data-view="archive">
+                <span class="nav-icon">▣</span>
+                <span class="nav-label">АРХИВ</span>
             </button>
         </nav>
 
@@ -119,7 +139,7 @@
                 </div>
             </div>
 
-            <!-- Spectro Scan View -->
+            <!-- Spectro View -->
             <div id="spectro-view" class="view-section">
                 <div class="spectro-header">
                     <h2 class="section-title">// SPECTRO-SCAN</h2>
@@ -158,14 +178,8 @@
                         <span id="cerber-status" class="analysis-value">Сканирование...</span>
                     </div>
                     <div class="analysis-detail" id="cerber-detail">
-                        Ожидание входных данных с микрофона...
+                        Ожидание входных данных...
                     </div>
-                </div>
-
-                <div class="audio-controls">
-                    <button id="toggle-audio" class="control-btn">
-                        <span>▶ НАЧАТЬ ЗАПИСЬ</span>
-                    </button>
                 </div>
             </div>
 
@@ -190,9 +204,9 @@
                 <div class="tremor-display">
                     <canvas id="seismograph"></canvas>
                     <div class="axis-labels">
-                        <div class="axis x">X (вперед-назад)</div>
-                        <div class="axis y">Y (влево-вправо)</div>
-                        <div class="axis z">Z (вверх-вниз)</div>
+                        <div class="axis x">X</div>
+                        <div class="axis y">Y</div>
+                        <div class="axis z">Z</div>
                     </div>
                 </div>
 
@@ -220,256 +234,159 @@
                 </div>
             </div>
 
-            <!-- Protocols View -->
-            <div id="protocols-view" class="view-section">
-                <h2 class="section-title">// АКТИВНЫЕ ПРОТОКОЛЫ</h2>
-                
-                <div class="protocol-list">
-                    <div class="protocol-card active" data-protocol="cerber">
-                        <div class="protocol-header">
-                            <div class="protocol-icon">◉</div>
-                            <div class="protocol-title">
-                                <div class="protocol-name">CERBER-AUDIO</div>
-                                <div class="protocol-desc">Анализ частот</div>
-                            </div>
-                            <div class="protocol-toggle">ON</div>
-                        </div>
-                        <div class="protocol-details">
-                            <div class="detail-row">
-                                <span>Частота:</span>
-                                <span class="freq-value">19.47 kHz</span>
-                            </div>
-                            <div class="detail-row">
-                                <span>Фильтр:</span>
-                                <span class="status-ok">АКТИВЕН</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="protocol-card active" data-protocol="quill">
-                        <div class="protocol-header">
-                            <div class="protocol-icon">◉</div>
-                            <div class="protocol-title">
-                                <div class="protocol-name">QUILL-MESH</div>
-                                <div class="protocol-desc">P2P связь</div>
-                            </div>
-                            <div class="protocol-toggle">ON</div>
-                        </div>
-                        <div class="protocol-details">
-                            <div class="detail-row">
-                                <span>Узлы:</span>
-                                <span>4/4</span>
-                            </div>
-                            <div class="detail-row">
-                                <span>Шифрование:</span>
-                                <span class="status-ok">AES-256</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="protocol-card active" data-protocol="bio">
-                        <div class="protocol-header">
-                            <div class="protocol-icon">◉</div>
-                            <div class="protocol-title">
-                                <div class="protocol-name">BIO-LINK</div>
-                                <div class="protocol-desc">Мониторинг пульса</div>
-                            </div>
-                            <div class="protocol-toggle">ON</div>
-                        </div>
-                        <div class="protocol-details">
-                            <div class="detail-row">
-                                <span>Пульс:</span>
-                                <span class="pulse-value">72 BPM</span>
-                            </div>
-                            <div class="detail-row">
-                                <span>Статус:</span>
-                                <span class="status-ok">НОРМА</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="protocol-card active" data-protocol="emf">
-                        <div class="protocol-header">
-                            <div class="protocol-icon">◉</div>
-                            <div class="protocol-title">
-                                <div class="protocol-name">EMF-SCANNER</div>
-                                <div class="protocol-desc">Электромагнитный фон</div>
-                            </div>
-                            <div class="protocol-toggle">ON</div>
-                        </div>
-                        <div class="protocol-details">
-                            <div class="detail-row">
-                                <span>Уровень:</span>
-                                <span class="emf-value">0.03 μT</span>
-                            </div>
-                            <div class="detail-row">
-                                <span>Датчик:</span>
-                                <span class="status-ok">КАЛИБРОВАН</span>
-                            </div>
-                        </div>
+            <!-- Audio View (Ghost Box) -->
+            <div id="audio-view" class="view-section">
+                <div class="audio-header">
+                    <h2 class="section-title">// CERBER-AUDIO: GHOST BOX</h2>
+                    <div class="audio-status">
+                        <span id="audio-status-dot" class="status-dot"></span>
+                        <span id="audio-status-text">ГОТОВ</span>
                     </div>
                 </div>
 
-                <!-- EVP Widget -->
-                <div class="evp-section">
-                    <h3 class="subsection-title">◈ EVP ANALYZER</h3>
-                    <canvas id="waveform"></canvas>
-                    <div class="evp-info">
-                        <div class="evp-status">ИИ Cerber фильтрует шумы</div>
-                        <div class="evp-ready">Готовность: <span>100%</span></div>
+                <div class="audio-main">
+                    <canvas id="audio-waveform"></canvas>
+                    <div class="audio-levels">
+                        <div class="level-bar">
+                            <div id="level-fill" class="level-fill"></div>
+                        </div>
+                        <div class="level-text" id="level-text">-∞ dB</div>
+                    </div>
+                </div>
+
+                <div class="audio-controls-main">
+                    <button id="record-btn" class="record-btn">
+                        <span class="record-icon">●</span>
+                        <span class="record-text">ЗАПИСЬ</span>
+                    </button>
+                    
+                    <button id="replay-btn" class="replay-btn" disabled>
+                        <span class="replay-icon">▶</span>
+                        <span class="replay-text">ПОВТОР 10С</span>
+                    </button>
+                </div>
+
+                <div class="audio-player" id="audio-player">
+                    <div class="player-header">
+                        <span>БУФЕР: 10 сек</span>
+                        <span id="buffer-time">00:00 / 00:10</span>
+                    </div>
+                    <div class="player-timeline">
+                        <div id="player-progress" class="player-progress"></div>
+                    </div>
+                    <div class="player-controls">
+                        <button id="player-play" class="player-btn">▶</button>
+                        <button id="player-filter" class="player-btn active">ФИЛЬТР: ON</button>
+                    </div>
+                </div>
+
+                <div class="audio-info">
+                    <div class="info-line">
+                        <span>Режим:</span>
+                        <span id="audio-mode">Ожидание</span>
+                    </div>
+                    <div class="info-line">
+                        <span>Буфер:</span>
+                        <span id="buffer-status">Пуст</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Team View -->
-            <div id="team-view" class="view-section">
-                <h2 class="section-title">// СТАТУС КОМАНДЫ</h2>
+            <!-- Chat View -->
+            <div id="chat-view" class="view-section">
+                <div class="chat-header">
+                    <h2 class="section-title">// QUILL-CHAT</h2>
+                    <div class="chat-status">
+                        <span class="status-dot active"></span>
+                        <span class="status-text">4 УЗЛА ОНЛАЙН</span>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-system">
+                        <span class="system-time">[00:00:00]</span>
+                        <span class="system-text">СИСТЕМА: QUILL-MESH активен. Шифрование: AES-256.</span>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" class="chat-input" placeholder="Введите сообщение..." maxlength="100">
+                    <button id="chat-send" class="chat-send">➤</button>
+                </div>
+
+                <div class="chat-shortcuts">
+                    <button class="shortcut-btn" data-msg="Сектор чист">Сектор чист</button>
+                    <button class="shortcut-btn" data-msg="Вижу движение">Вижу движение</button>
+                    <button class="shortcut-btn" data-msg="Слышу звук">Слышу звук</button>
+                    <button class="shortcut-btn" data-msg="Нужна помощь">Нужна помощь</button>
+                </div>
+            </div>
+
+            <!-- Archive View -->
+            <div id="archive-view" class="view-section">
+                <h2 class="section-title">// АРХИВ НАСЛЕДИЯ</h2>
                 
-                <div class="mesh-status-banner">
-                    <div class="mesh-icon">◈</div>
-                    <div class="mesh-info">
-                        <div class="mesh-label">QUILL-MESH</div>
-                        <div class="mesh-state">ЗАЩИЩЕННОЕ СОЕДИНЕНИЕ</div>
-                    </div>
+                <div class="classified-banner">
+                    <div class="banner-stripe"></div>
+                    <div class="banner-text">СОВЕРШЕННО СЕКРЕТНО</div>
+                    <div class="banner-stripe"></div>
                 </div>
 
-                <div class="team-list">
-                    <div class="team-member" data-user="dima">
-                        <div class="member-main">
-                            <div class="member-avatar">Д</div>
-                            <div class="member-info">
-                                <div class="member-name">Дима</div>
-                                <div class="member-role">Командир</div>
-                            </div>
-                            <div class="member-status online">●</div>
-                        </div>
-                        <div class="member-details">
-                            <div class="detail">
-                                <span class="detail-label">Сигнал:</span>
-                                <div class="signal-bars">
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                </div>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Батарея:</span>
-                                <div class="battery-bar">
-                                    <div class="battery-fill" style="width: 87%"></div>
-                                </div>
-                                <span class="battery-text">87%</span>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Пульс:</span>
-                                <span class="pulse">72 BPM</span>
-                            </div>
-                        </div>
+                <div class="classified-doc">
+                    <div class="doc-header">
+                        <div class="doc-id">ГРУ // ДОСЬЕ №774</div>
+                        <div class="doc-date">ДАТА: [РЕДАКТИРОВАНО]</div>
+                    </div>
+                    
+                    <div class="doc-content">
+                        <p class="legacy-text">
+                            Мой дед спускался в урановые шахты, когда радиация была единственным спутником. 
+                            Я вырос на историях о том, как тишина может быть опаснее звука.
+                        </p>
+                        <p class="legacy-text">
+                            В моих генах — знание того, как работают приборы в зонах отчуждения. 
+                            Я создал GHOST-HUB не для развлечения, а как профессиональный инструмент 
+                            для тех, кто идет туда, куда другие боятся заглянуть.
+                        </p>
                     </div>
 
-                    <div class="team-member" data-user="sudar">
-                        <div class="member-main">
-                            <div class="member-avatar">С</div>
-                            <div class="member-info">
-                                <div class="member-name">Сударь</div>
-                                <div class="member-role">Техник</div>
-                            </div>
-                            <div class="member-status online">●</div>
+                    <div class="doc-footer">
+                        <div class="footer-item">
+                            <span class="label">АВТОР:</span>
+                            <span class="value">Иван</span>
                         </div>
-                        <div class="member-details">
-                            <div class="detail">
-                                <span class="detail-label">Сигнал:</span>
-                                <div class="signal-bars">
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar weak"></span>
-                                </div>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Батарея:</span>
-                                <div class="battery-bar">
-                                    <div class="battery-fill medium" style="width: 64%"></div>
-                                </div>
-                                <span class="battery-text">64%</span>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Пульс:</span>
-                                <span class="pulse">68 BPM</span>
-                            </div>
+                        <div class="footer-item">
+                            <span class="label">КОД:</span>
+                            <span class="value">STALKER-GENE</span>
                         </div>
-                    </div>
-
-                    <div class="team-member" data-user="polina">
-                        <div class="member-main">
-                            <div class="member-avatar">П</div>
-                            <div class="member-info">
-                                <div class="member-name">Полина</div>
-                                <div class="member-role">Аналитик</div>
-                            </div>
-                            <div class="member-status online">●</div>
-                        </div>
-                        <div class="member-details">
-                            <div class="detail">
-                                <span class="detail-label">Сигнал:</span>
-                                <div class="signal-bars">
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                </div>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Батарея:</span>
-                                <div class="battery-bar">
-                                    <div class="battery-fill high" style="width: 92%"></div>
-                                </div>
-                                <span class="battery-text">92%</span>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Пульс:</span>
-                                <span class="pulse">75 BPM</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="team-member" data-user="chernets">
-                        <div class="member-main">
-                            <div class="member-avatar">Ч</div>
-                            <div class="member-info">
-                                <div class="member-name">Чернец</div>
-                                <div class="member-role">Связист</div>
-                            </div>
-                            <div class="member-status online">●</div>
-                        </div>
-                        <div class="member-details">
-                            <div class="detail">
-                                <span class="detail-label">Сигнал:</span>
-                                <div class="signal-bars">
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar weak"></span>
-                                    <span class="bar weak"></span>
-                                </div>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Батарея:</span>
-                                <div class="battery-bar">
-                                    <div class="battery-fill low" style="width: 45%"></div>
-                                </div>
-                                <span class="battery-text">45%</span>
-                            </div>
-                            <div class="detail">
-                                <span class="detail-label">Пульс:</span>
-                                <span class="pulse">70 BPM</span>
-                            </div>
+                        <div class="footer-item">
+                            <span class="label">ДОСТУП:</span>
+                            <span class="value success">РАЗРЕШЕН</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="mesh-footer">
-                    <div class="footer-text">Связь через P2P протокол ШИФР</div>
-                    <div class="footer-sub">Неуязвима для блокировок</div>
+                <!-- Evidence Vault -->
+                <div class="evidence-vault">
+                    <h3 class="subsection-title">◈ EVIDENCE VAULT</h3>
+                    <div class="vault-stats">
+                        <div class="vault-stat">
+                            <span class="stat-num" id="evidence-count">0</span>
+                            <span class="stat-label">УЛИК</span>
+                        </div>
+                        <div class="vault-stat">
+                            <span class="stat-num" id="audio-count">0</span>
+                            <span class="stat-label">АУДИО</span>
+                        </div>
+                    </div>
+                    <div class="vault-actions">
+                        <button id="export-pdf" class="vault-btn">ЭКСПОРТ PDF</button>
+                        <button id="export-txt" class="vault-btn">ЭКСПОРТ TXT</button>
+                        <button id="clear-vault" class="vault-btn danger">ОЧИСТИТЬ</button>
+                    </div>
+                    <div class="vault-list" id="vault-list">
+                        <div class="vault-empty">Хранилище пусто</div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -531,70 +448,71 @@
                 <div class="timer-display" id="deadman-timer">30:00</div>
                 <div class="timer-label">ДО АВТОМАТИЧЕСКОЙ ОТПРАВКИ ТРЕВОГИ</div>
                 
+                <div class="deadman-status" id="deadman-status">
+                    <span class="status-icon">⏸</span>
+                    <span class="status-text">ОЖИДАНИЕ АКТИВАЦИИ</span>
+                </div>
+
                 <div class="deadman-info">
                     <p>При срабатывании будет отправлено:</p>
                     <ul>
                         <li>Последние GPS-координаты</li>
-                        <li>Аудиозапись последних 10 секунд</li>
+                        <li>Аудиозапись последних 10 сек</li>
                         <li>Статус всех датчиков</li>
                     </ul>
                 </div>
 
-                <button id="reset-timer" class="reset-btn">
-                    [ Я В ПОРЯДКЕ - СБРОСИТЬ ТАЙМЕР ]
-                </button>
-                
-                <button id="start-timer" class="start-btn hidden">
-                    [ АКТИВИРОВАТЬ ПРОТОКОЛ ]
-                </button>
+                <div class="deadman-controls">
+                    <button id="start-timer" class="control-btn start">
+                        [ АКТИВИРОВАТЬ ПРОТОКОЛ ]
+                    </button>
+                    
+                    <button id="reset-timer" class="control-btn reset hidden">
+                        [ Я В ПОРЯДКЕ - СБРОСИТЬ ]
+                    </button>
+                    
+                    <button id="stop-timer" class="control-btn stop hidden">
+                        [ ОСТАНОВИТЬ ПРОТОКОЛ ]
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Contact Modal -->
-    <div id="contact-modal" class="modal hidden">
+    <!-- Voice Help Modal -->
+    <div id="voice-help-modal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <span class="modal-title">SECURE CHANNEL</span>
+                <span class="modal-title">◈ VOICE COMMANDER</span>
                 <button class="close-btn">×</button>
             </div>
             <div class="modal-body">
-                <div class="terminal-line">root@ghost-hub:~$ ./contact.sh</div>
-                <div class="terminal-line">Loading protocols...</div>
-                <div class="terminal-line success">[OK] Encryption established</div>
-                
-                <div class="contact-links">
-                    <a href="https://t.me/username" class="contact-link">
-                        <span class="link-icon">➤</span>
-                        <div class="link-info">
-                            <span class="link-label">TELEGRAM</span>
-                            <span class="link-value">@username</span>
-                        </div>
-                    </a>
-                    
-                    <a href="tel:+79990000000" class="contact-link">
-                        <span class="link-icon">➤</span>
-                        <div class="link-info">
-                            <span class="link-label">SECURE LINE</span>
-                            <span class="link-value">+7 (999) 000-00-00</span>
-                        </div>
-                    </a>
-                    
-                    <a href="https://vk.com/username" class="contact-link">
-                        <span class="link-icon">➤</span>
-                        <div class="link-info">
-                            <span class="link-label">VKONTAKTE</span>
-                            <span class="link-value">vk.com/username</span>
-                        </div>
-                    </a>
+                <div class="voice-commands">
+                    <div class="command-item">
+                        <span class="command-word">"ЛОГ!"</span>
+                        <span class="command-desc">Фиксация инцидента</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-word">"НОЧЬ!"</span>
+                        <span class="command-desc">Night-Ops фильтр</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-word">"СТАТУС!"</span>
+                        <span class="command-desc">Голосовой отчёт</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-word">"СТОП!"</span>
+                        <span class="command-desc">Остановить запись</span>
+                    </div>
                 </div>
-                
-                <div class="terminal-line blink">_</div>
+                <button id="start-voice" class="control-btn start">
+                    [ ВКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ ]
+                </button>
             </div>
         </div>
     </div>
 
     <script src="script.js"></script>
 </body>
-    </html>
+</html>
