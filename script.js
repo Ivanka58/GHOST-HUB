@@ -1,5 +1,105 @@
 // script.js
 document.addEventListener('DOMContentLoaded', () => {
+    // ==================== AUDIO SYSTEM ====================
+    const AudioEngine = {
+        ctx: null,
+        sounds: {},
+        
+        init() {
+            window.AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+            this.generateSounds();
+        },
+        
+        // Generate procedural sounds
+        generateSounds() {
+            // Click sound - short beep
+            this.sounds.click = () => this.playTone(800, 0.05, 'sine', 0.1);
+            
+            // Success sound - ascending
+            this.sounds.success = () => {
+                this.playTone(600, 0.1, 'sine', 0.1);
+                setTimeout(() => this.playTone(800, 0.1, 'sine', 0.1), 100);
+                setTimeout(() => this.playTone(1000, 0.15, 'sine', 0.15), 200);
+            };
+            
+            // Error/Alert - low buzz
+            this.sounds.alert = () => {
+                this.playTone(200, 0.3, 'sawtooth', 0.2);
+                setTimeout(() => this.playTone(150, 0.3, 'sawtooth', 0.2), 150);
+            };
+            
+            // Anomaly detected - eerie sound
+            this.sounds.anomaly = () => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            };
+            
+            // Dead man warning - urgent beeping
+            this.sounds.warning = () => {
+                this.playTone(800, 0.1, 'square', 0.15);
+                setTimeout(() => this.playTone(800, 0.1, 'square', 0.15), 200);
+            };
+            
+            // Recording start
+            this.sounds.recordStart = () => {
+                this.playTone(1000, 0.2, 'sine', 0.15);
+            };
+            
+            // Message sent
+            this.sounds.message = () => this.playTone(1200, 0.1, 'sine', 0.1);
+        },
+        
+        playTone(freq, duration, type = 'sine', volume = 0.1) {
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+            
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            
+            osc.type = type;
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        },
+        
+        play(name) {
+            if (this.sounds[name]) this.sounds[name]();
+        }
+    };
+
+    // Initialize audio on first user interaction
+    let audioInitialized = false;
+    function initAudio() {
+        if (!audioInitialized) {
+            AudioEngine.init();
+            audioInitialized = true;
+        }
+    }
+
+    // Add click listeners to all buttons for sound
+    document.addEventListener('click', (e) => {
+        initAudio();
+        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+            AudioEngine.play('click');
+        }
+    }, { once: true });
+
     // Boot sequence
     setTimeout(() => {
         const bootScreen = document.getElementById('boot-screen');
@@ -18,16 +118,14 @@ document.addEventListener('DOMContentLoaded', () => {
         initSpectrogram();
         initNavigation();
         initQuickActions();
-        initProtocols();
         initGeolocation();
         initAudioRecorder();
         initChat();
         initVoiceCommand();
         initEvidenceVault();
         initTremorWithPermission();
-        initGhostEye();
-        initSyncStart();
-        initCerberAI();
+        initNavigator(); // NEW
+        initDeadManSwitch(); // FIXED
     }
 
     // Clock
@@ -77,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Tactical Map
+    // Tactical Map (Canvas)
     function initMap() {
         const canvas = document.getElementById('tactical-map');
         const ctx = canvas.getContext('2d');
@@ -174,12 +272,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Waveform
     function initWaveform() {
-        const canvas = document.getElementById('waveform');
+        const canvas = document.getElementById('audio-waveform');
         if (!canvas) return;
         
         const ctx = canvas.getContext('2d');
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
+        
+        function resize() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
 
         function draw() {
             ctx.fillStyle = '#000';
@@ -201,15 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             ctx.stroke();
             
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.1)';
-            ctx.lineWidth = 1;
-            for (let x = 0; x < canvas.width; x += 20) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
-            }
-            
             requestAnimationFrame(draw);
         }
         draw();
@@ -221,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!canvas) return;
         
         const ctx = canvas.getContext('2d');
-        const width = 300;
+        const width = canvas.offsetWidth || 300;
         const height = 200;
         canvas.width = width;
         canvas.height = height;
@@ -230,7 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const history = [];
         const maxHistory = 60;
         let anomalyCount = 0;
-        let isRecording = false;
         
         function generateFreqData() {
             const data = [];
@@ -239,6 +332,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (i < 10 && Math.random() > 0.95) {
                     value = 0.8 + Math.random() * 0.2;
+                    // Trigger anomaly sound
+                    if (audioInitialized && Math.random() > 0.7) {
+                        AudioEngine.play('anomaly');
+                    }
                 }
                 
                 if (i > 15 && i < 25 && Math.random() > 0.98) {
@@ -284,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         g = Math.floor(51 * ((1 - value) / 0.3));
                         b = 51;
                         
-                        if (f < 10 && t === history.length - 1 && isRecording) {
+                        if (f < 10 && t === history.length - 1) {
                             anomalyCount++;
                             document.getElementById('anomaly-count').textContent = anomalyCount;
                             updateCerberStatus('АНОМАЛИЯ В ИНФРАЗВУКЕ!', 'Обнаружен пик в диапазоне 20-50Гц. Возможно присутствие субъекта.');
@@ -302,23 +399,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillText('50Hz', width - 25, height - 4);
             
             requestAnimationFrame(draw);
-        }
-
-        const toggleBtn = document.getElementById('toggle-audio');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                isRecording = !isRecording;
-                toggleBtn.classList.toggle('recording', isRecording);
-                toggleBtn.innerHTML = isRecording ? 
-                    '<span>⏹ ОСТАНОВИТЬ</span>' : 
-                    '<span>▶ НАЧАТЬ ЗАПИСЬ</span>';
-                
-                if (isRecording) {
-                    updateCerberStatus('Сканирование активно...', 'Ожидание входных данных с микрофона...');
-                } else {
-                    updateCerberStatus('Ожидание...', 'Нажмите НАЧАТЬ ЗАПИСЬ для анализа');
-                }
-            });
         }
 
         function updateCerberStatus(status, detail) {
@@ -349,6 +429,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         view.classList.add('active');
                     }
                 });
+
+                // Resize leaflet maps if navigator is opened
+                if (viewId === 'navigator-view' && window.leafletMaps) {
+                    setTimeout(() => {
+                        Object.values(window.leafletMaps).forEach(map => map.invalidateSize());
+                    }, 100);
+                }
             });
         });
     }
@@ -361,6 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (incidentBtn && incidentModal) {
             incidentBtn.addEventListener('click', () => {
+                AudioEngine.play('alert');
                 const now = new Date();
                 const time = now.toLocaleTimeString('ru-RU', {hour12: false});
                 const gps = document.getElementById('gps').textContent;
@@ -393,75 +481,431 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (nightOpsBtn && nightOverlay) {
             nightOpsBtn.addEventListener('click', () => {
-                const isHidden = !nightOverlay.classList.contains('hidden');
-                nightOverlay.classList.toggle('hidden', isHidden);
-                nightOpsBtn.classList.toggle('active', !isHidden);
-                document.body.classList.toggle('night-mode', !isHidden);
+                const isHidden = nightOverlay.classList.contains('hidden');
+                nightOverlay.classList.toggle('hidden', !isHidden);
+                nightOpsBtn.classList.toggle('active', isHidden);
+                document.body.classList.toggle('night-mode', isHidden);
             });
         }
 
         // Voice Command Button
-        const voiceBtn = document.getElementById('voice-btn');
-        if (voiceBtn) {
+        const voiceBtn = document.getElementById('voice-cmd-btn');
+        const voiceModal = document.getElementById('voice-help-modal');
+        
+        if (voiceBtn && voiceModal) {
             voiceBtn.addEventListener('click', () => {
-                voiceBtn.classList.toggle('active');
-                toggleVoiceRecognition();
+                voiceModal.classList.remove('hidden');
+            });
+            
+            voiceModal.querySelector('.close-btn').addEventListener('click', () => {
+                voiceModal.classList.add('hidden');
+            });
+            voiceModal.querySelector('.modal-overlay').addEventListener('click', () => {
+                voiceModal.classList.add('hidden');
             });
         }
     }
 
-    // Audio Recorder (Ghost Box)
+    // ==================== NAVIGATOR MODULE ====================
+    function initNavigator() {
+        window.leafletMaps = {};
+        
+        // Mode switching
+        const modeBtns = document.querySelectorAll('.nav-mode-btn');
+        const modeContents = document.querySelectorAll('.navigator-mode-content');
+        
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                
+                modeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                modeContents.forEach(c => c.classList.remove('active'));
+                document.getElementById('mode-' + mode).classList.add('active');
+                
+                // Init map if needed
+                if (mode === 'map-to-coords') {
+                    setTimeout(() => initPickerMap(), 100);
+                }
+            });
+        });
+
+        // Mode 1: Coordinates to Map
+        const btnShowOnMap = document.getElementById('btn-show-on-map');
+        if (btnShowOnMap) {
+            btnShowOnMap.addEventListener('click', () => {
+                const lat = parseFloat(document.getElementById('input-lat').value);
+                const lng = parseFloat(document.getElementById('input-lng').value);
+                
+                if (isNaN(lat) || isNaN(lng)) {
+                    showToast('Введите корректные координаты', 'error');
+                    AudioEngine.play('alert');
+                    return;
+                }
+                
+                const resultContainer = document.getElementById('coords-result-map');
+                resultContainer.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    const map = L.map('leaflet-map-1').setView([lat, lng], 15);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+                    
+                    L.marker([lat, lng]).addTo(map)
+                        .bindPopup(`Широта: ${lat}<br>Долгота: ${lng}`)
+                        .openPopup();
+                    
+                    window.leafletMaps['map1'] = map;
+                    document.getElementById('result-coords-1').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                }, 100);
+                
+                AudioEngine.play('success');
+            });
+        }
+
+        // Copy coordinates
+        const copyBtn1 = document.getElementById('copy-coords-1');
+        if (copyBtn1) {
+            copyBtn1.addEventListener('click', () => {
+                const text = document.getElementById('result-coords-1').textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('Координаты скопированы');
+                    AudioEngine.play('success');
+                });
+            });
+        }
+
+        // Mode 2: Address to Coordinates (using Nominatim)
+        const btnGetCoords = document.getElementById('btn-get-coords');
+        if (btnGetCoords) {
+            btnGetCoords.addEventListener('click', async () => {
+                const address = document.getElementById('input-address').value.trim();
+                if (!address) {
+                    showToast('Введите адрес', 'error');
+                    AudioEngine.play('alert');
+                    return;
+                }
+                
+                AudioEngine.play('click');
+                btnGetCoords.innerHTML = '<span>◈ ПОИСК...</span>';
+                
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+                    const data = await response.json();
+                    
+                    if (data && data.length > 0) {
+                        const result = data[0];
+                        const lat = parseFloat(result.lat);
+                        const lng = parseFloat(result.lon);
+                        
+                        document.getElementById('result-lat').textContent = lat.toFixed(6);
+                        document.getElementById('result-lng').textContent = lng.toFixed(6);
+                        document.getElementById('result-full-address').textContent = result.display_name;
+                        document.getElementById('address-result').classList.remove('hidden');
+                        
+                        AudioEngine.play('success');
+                    } else {
+                        showToast('Адрес не найден', 'error');
+                        AudioEngine.play('alert');
+                    }
+                } catch (err) {
+                    showToast('Ошибка поиска', 'error');
+                    AudioEngine.play('alert');
+                }
+                
+                btnGetCoords.innerHTML = '<span>◈ ПОЛУЧИТЬ КООРДИНАТЫ</span>';
+            });
+        }
+
+        // Show address on map
+        const showAddressMap = document.getElementById('show-address-on-map');
+        if (showAddressMap) {
+            showAddressMap.addEventListener('click', () => {
+                const lat = parseFloat(document.getElementById('result-lat').textContent);
+                const lng = parseFloat(document.getElementById('result-lng').textContent);
+                
+                const mapDiv = document.getElementById('leaflet-map-2');
+                mapDiv.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    const map = L.map('leaflet-map-2').setView([lat, lng], 15);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                    L.marker([lat, lng]).addTo(map);
+                    window.leafletMaps['map2'] = map;
+                }, 100);
+            });
+        }
+
+        // Mode 3: Map to Coordinates (Picker)
+        let pickerMap = null;
+        function initPickerMap() {
+            if (pickerMap) {
+                pickerMap.invalidateSize();
+                return;
+            }
+            
+            setTimeout(() => {
+                pickerMap = L.map('leaflet-map-3').setView([55.7558, 37.6173], 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(pickerMap);
+                
+                let marker = null;
+                
+                pickerMap.on('click', async (e) => {
+                    const { lat, lng } = e.latlng;
+                    
+                    if (marker) marker.remove();
+                    marker = L.marker([lat, lng]).addTo(pickerMap);
+                    
+                    document.getElementById('picker-lat').textContent = lat.toFixed(6);
+                    document.getElementById('picker-lng').textContent = lng.toFixed(6);
+                    document.getElementById('picker-result').classList.remove('hidden');
+                    
+                    // Reverse geocoding
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                        const data = await response.json();
+                        document.getElementById('picker-address').textContent = data.display_name || 'Адрес не определен';
+                    } catch {
+                        document.getElementById('picker-address').textContent = 'Адрес не определен';
+                    }
+                    
+                    AudioEngine.play('success');
+                });
+                
+                window.leafletMaps['picker'] = pickerMap;
+            }, 100);
+        }
+
+        // Copy picker coordinates
+        const copyPicker = document.getElementById('copy-picker-coords');
+        if (copyPicker) {
+            copyPicker.addEventListener('click', () => {
+                const lat = document.getElementById('picker-lat').textContent;
+                const lng = document.getElementById('picker-lng').textContent;
+                navigator.clipboard.writeText(`${lat}, ${lng}`).then(() => {
+                    showToast('Координаты скопированы');
+                    AudioEngine.play('success');
+                });
+            });
+        }
+
+        // Use picker coordinates in Mode 1
+        const usePicker = document.getElementById('use-picker-coords');
+        if (usePicker) {
+            usePicker.addEventListener('click', () => {
+                const lat = document.getElementById('picker-lat').textContent;
+                const lng = document.getElementById('picker-lng').textContent;
+                
+                document.getElementById('input-lat').value = lat;
+                document.getElementById('input-lng').value = lng;
+                
+                // Switch to mode 1
+                document.querySelector('[data-mode="coords-to-map"]').click();
+                showToast('Координаты перенесены');
+                AudioEngine.play('success');
+            });
+        }
+
+        // Quick coordinates buttons
+        document.querySelectorAll('.quick-coord-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const lat = btn.dataset.lat;
+                const lng = btn.dataset.lng;
+                
+                document.getElementById('input-lat').value = lat;
+                document.getElementById('input-lng').value = lng;
+                
+                // Switch to mode 1 and trigger
+                document.querySelector('[data-mode="coords-to-map"]').click();
+                document.getElementById('btn-show-on-map').click();
+            });
+        });
+    }
+
+    // Toast notification
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+
+    // ==================== DEAD MAN SWITCH - FIXED ====================
+    function initDeadManSwitch() {
+        const deadmanBtn = document.getElementById('deadman-btn');
+        const deadmanModal = document.getElementById('deadman-modal');
+        const deadmanMini = document.getElementById('deadman-mini');
+        const startBtn = document.getElementById('start-timer');
+        const resetBtn = document.getElementById('reset-timer');
+        const stopBtn = document.getElementById('stop-timer');
+        const miniReset = document.getElementById('mini-reset');
+        const timerDisplay = document.getElementById('deadman-timer');
+        const miniTimer = document.getElementById('mini-timer');
+        const statusEl = document.getElementById('deadman-status');
+        
+        let timeLeft = 1800; // 30 minutes in seconds
+        let timerInterval = null;
+        let isRunning = false;
+
+        // Open modal
+        if (deadmanBtn && deadmanModal) {
+            deadmanBtn.addEventListener('click', () => {
+                deadmanModal.classList.remove('hidden');
+            });
+
+            // Close handlers
+            deadmanModal.querySelector('.close-btn').addEventListener('click', () => {
+                deadmanModal.classList.add('hidden');
+            });
+            deadmanModal.querySelector('.modal-overlay').addEventListener('click', () => {
+                deadmanModal.classList.add('hidden');
+            });
+        }
+
+        // Start timer
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                AudioEngine.play('alert');
+                isRunning = true;
+                timeLeft = 1800;
+                
+                // Update UI
+                startBtn.classList.add('hidden');
+                resetBtn.classList.remove('hidden');
+                stopBtn.classList.remove('hidden');
+                
+                // Update status
+                statusEl.innerHTML = '<span class="status-icon">▶</span><span class="status-text">ПРОТОКОЛ АКТИВЕН</span>';
+                statusEl.style.color = 'var(--danger)';
+                
+                // Show mini display
+                deadmanMini.classList.remove('hidden');
+                deadmanBtn.classList.add('active');
+                
+                updateTimerDisplay();
+                
+                // Start countdown
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    
+                    // Warning sounds at 5, 2, 1 minutes
+                    if ([300, 120, 60].includes(timeLeft)) {
+                        AudioEngine.play('warning');
+                    }
+                    
+                    if (timeLeft <= 0) {
+                        triggerAlarm();
+                    }
+                }, 1000);
+            });
+        }
+
+        // Reset timer (I'm OK)
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                AudioEngine.play('success');
+                timeLeft = 1800;
+                updateTimerDisplay();
+                
+                // Visual feedback
+                resetBtn.style.transform = 'scale(0.95)';
+                setTimeout(() => resetBtn.style.transform = '', 100);
+                
+                showToast('Таймер сброшен на 30:00');
+            });
+        }
+
+        // Mini reset (same function)
+        if (miniReset) {
+            miniReset.addEventListener('click', () => {
+                AudioEngine.play('success');
+                timeLeft = 1800;
+                updateTimerDisplay();
+                showToast('Таймер сброшен');
+            });
+        }
+
+        // Stop timer
+        if (stopBtn) {
+            stopBtn.addEventListener('click', () => {
+                AudioEngine.play('click');
+                clearInterval(timerInterval);
+                isRunning = false;
+                
+                // Reset UI
+                startBtn.classList.remove('hidden');
+                resetBtn.classList.add('hidden');
+                stopBtn.classList.add('hidden');
+                
+                statusEl.innerHTML = '<span class="status-icon">⏸</span><span class="status-text">ОЖИДАНИЕ АКТИВАЦИИ</span>';
+                statusEl.style.color = '';
+                
+                deadmanMini.classList.add('hidden');
+                deadmanBtn.classList.remove('active');
+                
+                timeLeft = 1800;
+                updateTimerDisplay();
+            });
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            timerDisplay.textContent = timeStr;
+            miniTimer.textContent = timeStr;
+            
+            // Warning colors
+            if (timeLeft < 300) { // Less than 5 minutes
+                timerDisplay.classList.add('warning');
+                miniTimer.style.color = 'var(--warning)';
+            } else {
+                timerDisplay.classList.remove('warning');
+                miniTimer.style.color = '';
+            }
+        }
+
+        function triggerAlarm() {
+            clearInterval(timerInterval);
+            AudioEngine.play('alert');
+            
+            // Simulate sending data
+            const gps = document.getElementById('gps').textContent;
+            console.log('ALARM! Sending:', { gps, time: new Date().toISOString() });
+            
+            showToast('ТРЕВОГА! Данные отправлены', 'error');
+            
+            // Reset after alarm
+            setTimeout(() => {
+                stopBtn.click();
+            }, 3000);
+        }
+    }
+
+    // Audio Recorder
     function initAudioRecorder() {
         let mediaRecorder = null;
         let audioChunks = [];
-        let audioBuffer = [];
         let isRecording = false;
-        let bufferInterval = null;
 
         const recordBtn = document.getElementById('record-btn');
         const replayBtn = document.getElementById('replay-btn');
-        const audioWaveform = document.getElementById('audio-waveform');
-        const bufferWaveform = document.getElementById('buffer-waveform');
-        const recorderTime = document.querySelector('.recorder-time');
+        const levelFill = document.getElementById('level-fill');
+        const levelText = document.getElementById('level-text');
+        const statusDot = document.getElementById('audio-status-dot');
+        const statusText = document.getElementById('audio-status-text');
 
         if (!recordBtn) return;
-
-        // Canvas for waveform
-        const ctx = audioWaveform ? audioWaveform.getContext('2d') : null;
-        const bufCtx = bufferWaveform ? bufferWaveform.getContext('2d') : null;
-
-        function drawWaveform(canvas, ctx, active = false) {
-            if (!ctx) return;
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-            
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.strokeStyle = active ? '#FF3333' : '#00E5FF';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            
-            const time = Date.now() / 100;
-            for (let x = 0; x < canvas.width; x += 2) {
-                const amp = active ? 20 : 5;
-                const y = canvas.height / 2 + 
-                    Math.sin(x * 0.05 + time) * amp +
-                    (Math.random() - 0.5) * (active ? 10 : 2);
-                
-                if (x === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-            
-            if (active || isRecording) {
-                requestAnimationFrame(() => drawWaveform(canvas, ctx, active));
-            }
-        }
-
-        if (audioWaveform && ctx) {
-            drawWaveform(audioWaveform, ctx, false);
-        }
 
         recordBtn.addEventListener('click', async () => {
             if (!isRecording) {
@@ -477,75 +921,70 @@ document.addEventListener('DOMContentLoaded', () => {
                     mediaRecorder.onstop = () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                         const audioUrl = URL.createObjectURL(audioBlob);
-                        // Store in buffer (last 10 seconds)
-                        audioBuffer.unshift({ url: audioUrl, time: Date.now() });
-                        if (audioBuffer.length > 6) audioBuffer.pop(); // Keep last ~60 seconds
+                        window.lastRecording = audioUrl;
+                        replayBtn.disabled = false;
                         
-                        replayBtn.disabled = audioBuffer.length === 0;
+                        if (statusDot) statusDot.classList.remove('active');
+                        if (statusText) statusText.textContent = 'ГОТОВ';
                     };
                     
-                    mediaRecorder.start(1000); // Collect every second
+                    mediaRecorder.start();
                     isRecording = true;
                     recordBtn.classList.add('recording');
-                    recordBtn.innerHTML = '<span>⏹ СТОП</span>';
+                    recordBtn.innerHTML = '<span class="record-icon">⏹</span><span class="record-text">СТОП</span>';
                     
-                    // Start buffer collection
-                    let seconds = 0;
-                    bufferInterval = setInterval(() => {
-                        seconds++;
-                        if (recorderTime) recorderTime.textContent = `00:${seconds.toString().padStart(2, '0')}`;
-                        
-                        // Visual buffer indicator
-                        if (bufCtx && bufferWaveform) {
-                            bufCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-                            bufCtx.fillRect(0, 0, bufferWaveform.width, bufferWaveform.height);
-                            bufCtx.fillStyle = '#FF8C00';
-                            const barWidth = (bufferWaveform.width / 10) * (seconds % 10);
-                            bufCtx.fillRect(0, bufferWaveform.height - 10, barWidth, 8);
+                    AudioEngine.play('recordStart');
+                    
+                    if (statusDot) {
+                        statusDot.classList.add('active');
+                        statusDot.style.background = 'var(--danger)';
+                    }
+                    if (statusText) statusText.textContent = 'ЗАПИСЬ';
+                    
+                    // Simulate level meter
+                    const levelInterval = setInterval(() => {
+                        if (!isRecording) {
+                            clearInterval(levelInterval);
+                            return;
                         }
-                    }, 1000);
-                    
-                    drawWaveform(audioWaveform, ctx, true);
+                        const level = Math.random() * 80 + 20;
+                        if (levelFill) levelFill.style.width = level + '%';
+                        if (levelText) levelText.textContent = '-' + Math.floor(Math.random() * 20 + 20) + ' dB';
+                    }, 100);
                     
                 } catch (err) {
-                    alert('Доступ к микрофону запрещен. Проверьте разрешения.');
+                    showToast('Доступ к микрофону запрещен', 'error');
+                    AudioEngine.play('alert');
                 }
             } else {
                 mediaRecorder.stop();
                 mediaRecorder.stream.getTracks().forEach(track => track.stop());
                 isRecording = false;
                 recordBtn.classList.remove('recording');
-                recordBtn.innerHTML = '<span>● ЗАПИСЬ</span>';
-                clearInterval(bufferInterval);
-                if (recorderTime) recorderTime.textContent = '00:00';
-                drawWaveform(audioWaveform, ctx, false);
+                recordBtn.innerHTML = '<span class="record-icon">●</span><span class="record-text">ЗАПИСЬ</span>';
+                
+                if (levelFill) levelFill.style.width = '0%';
+                if (levelText) levelText.textContent = '-∞ dB';
             }
         });
 
         if (replayBtn) {
             replayBtn.addEventListener('click', () => {
-                if (audioBuffer.length > 0) {
-                    const lastRecording = audioBuffer[0];
-                    const audio = new Audio(lastRecording.url);
+                if (window.lastRecording) {
+                    const audio = new Audio(window.lastRecording);
                     audio.play();
-                    
-                    // Visual feedback
-                    replayBtn.style.background = '#00E5FF';
-                    setTimeout(() => {
-                        replayBtn.style.background = '';
-                    }, 1000);
+                    AudioEngine.play('success');
                 }
             });
-            replayBtn.disabled = true;
         }
     }
 
-    // Chat Simulation
+    // Chat
     function initChat() {
         const chatMessages = document.getElementById('chat-messages');
         const chatInput = document.getElementById('chat-input');
         const chatSend = document.getElementById('chat-send');
-        
+
         if (!chatMessages) return;
 
         const teamMembers = [
@@ -588,13 +1027,12 @@ document.addEventListener('DOMContentLoaded', () => {
             chatMessages.appendChild(msg);
             chatMessages.scrollTop = chatMessages.scrollHeight;
             
-            // Sound effect
-            if (!isOutgoing && navigator.vibrate) {
-                navigator.vibrate(50);
+            if (isOutgoing) {
+                AudioEngine.play('message');
             }
         }
 
-        // Auto messages every 30 seconds
+        // Auto messages
         setInterval(() => {
             const member = teamMembers[Math.floor(Math.random() * teamMembers.length)];
             const message = autoMessages[Math.floor(Math.random() * autoMessages.length)];
@@ -617,12 +1055,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+
+        // Shortcuts
+        document.querySelectorAll('.shortcut-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                chatInput.value = btn.dataset.msg;
+                chatSend.click();
+            });
+        });
     }
 
     // Voice Command
-    let recognition = null;
-    let isListening = false;
-
     function initVoiceCommand() {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
             console.log('Speech recognition not supported');
@@ -630,96 +1073,123 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
+        const recognition = new SpeechRecognition();
         recognition.lang = 'ru-RU';
         recognition.continuous = true;
         recognition.interimResults = false;
+
+        let isListening = false;
+
+        const startVoiceBtn = document.getElementById('start-voice');
+        if (startVoiceBtn) {
+            startVoiceBtn.addEventListener('click', () => {
+                if (!isListening) {
+                    recognition.start();
+                    isListening = true;
+                    startVoiceBtn.textContent = '[ ВЫКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ ]';
+                    AudioEngine.play('success');
+                    showToast('Голосовое управление активно');
+                } else {
+                    recognition.stop();
+                    isListening = false;
+                    startVoiceBtn.textContent = '[ ВКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ ]';
+                }
+            });
+        }
 
         recognition.onresult = (event) => {
             const command = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
             processVoiceCommand(command);
         };
 
-        recognition.onerror = (event) => {
-            console.log('Speech recognition error:', event.error);
-        };
-    }
-
-    function toggleVoiceRecognition() {
-        if (!recognition) {
-            alert('Голосовое управление не поддерживается в этом браузере');
-            return;
-        }
-
-        const voiceStatus = document.getElementById('voice-status');
-        
-        if (!isListening) {
-            recognition.start();
-            isListening = true;
+        function processVoiceCommand(command) {
+            const voiceStatus = document.getElementById('voice-status');
+            
             if (voiceStatus) {
-                voiceStatus.classList.add('active', 'listening');
-                voiceStatus.textContent = 'СЛУШАЮ...';
+                voiceStatus.classList.remove('hidden');
+                voiceStatus.classList.add('active');
+                voiceStatus.querySelector('.voice-text').textContent = `РАСПОЗНАНО: "${command}"`;
             }
-        } else {
-            recognition.stop();
-            isListening = false;
-            if (voiceStatus) {
-                voiceStatus.classList.remove('active', 'listening');
-                voiceStatus.textContent = '';
+
+            if (command.includes('лог') || command.includes('запись')) {
+                document.getElementById('incident-btn').click();
+                speakResponse('Событие зафиксировано');
+            } else if (command.includes('ночь') || command.includes('темно')) {
+                document.getElementById('night-ops-btn').click();
+                speakResponse('Ночной режим активирован');
+            } else if (command.includes('статус')) {
+                speakResponse('Все системы в норме');
+            } else if (command.includes('карта')) {
+                document.querySelector('[data-view="map"]').click();
+                speakResponse('Переход на карту');
+            } else if (command.includes('навигатор')) {
+                document.querySelector('[data-view="navigator"]').click();
+                speakResponse('Открыт навигатор');
+            }
+
+            setTimeout(() => {
+                if (voiceStatus) voiceStatus.classList.add('hidden');
+            }, 2000);
+        }
+
+        function speakResponse(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ru-RU';
+                utterance.rate = 0.9;
+                utterance.pitch = 0.8;
+                window.speechSynthesis.speak(utterance);
             }
         }
     }
 
-    function processVoiceCommand(command) {
-        const voiceStatus = document.getElementById('voice-status');
-        
-        // Visual feedback
-        if (voiceStatus) {
-            voiceStatus.textContent = `РАСПОЗНАНО: "${command}"`;
-            voiceStatus.classList.remove('listening');
-        }
-
-        // Commands
-        if (command.includes('лог') || command.includes('запись') || command.includes('событие')) {
-            document.getElementById('incident-btn').click();
-            speakResponse('Событие зафиксировано');
-        } else if (command.includes('ночь') || command.includes('темно') || command.includes('фильтр')) {
-            document.getElementById('night-ops-btn').click();
-            speakResponse('Ночной режим активирован');
-        } else if (command.includes('статус') || command.includes('состояние')) {
-            speakResponse('Все системы в норме. Группа на связи. Аномалий не обнаружено.');
-        } else if (command.includes('карта') || command.includes('главная')) {
-            document.querySelector('[data-view="map"]').click();
-            speakResponse('Переход на тактическую карту');
-        } else if (command.includes('чат') || command.includes('команда')) {
-            document.querySelector('[data-view="team"]').click();
-            speakResponse('Открыт командный чат');
-        } else {
-            speakResponse('Команда не распознана');
-        }
-
-        setTimeout(() => {
-            if (voiceStatus && isListening) {
-                voiceStatus.textContent = 'СЛУШАЮ...';
-                voiceStatus.classList.add('listening');
-            }
-        }, 2000);
-    }
-
-    function speakResponse(text) {
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ru-RU';
-            utterance.rate = 0.9;
-            utterance.pitch = 0.8;
-            window.speechSynthesis.speak(utterance);
-        }
-    }
-
-    // Evidence Vault with localStorage
+    // Evidence Vault
     function initEvidenceVault() {
         loadEvidence();
         updateVaultCount();
+
+        // Export buttons
+        const exportTxt = document.getElementById('export-txt');
+        const exportPdf = document.getElementById('export-pdf');
+        const clearVault = document.getElementById('clear-vault');
+
+        if (exportTxt) {
+            exportTxt.addEventListener('click', () => {
+                const evidence = JSON.parse(localStorage.getItem('ghostHubEvidence') || '[]');
+                const text = evidence.map(e => 
+                    `[${e.time}] ${e.gps || e.coords} | EMF: ${e.emf} | Шум: ${e.noise}`
+                ).join('\n');
+                
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ghost-hub-evidence-${Date.now()}.txt`;
+                a.click();
+                
+                AudioEngine.play('success');
+                showToast('Экспорт завершен');
+            });
+        }
+
+        if (exportPdf) {
+            exportPdf.addEventListener('click', () => {
+                AudioEngine.play('click');
+                showToast('PDF генерация... (демо)');
+            });
+        }
+
+        if (clearVault) {
+            clearVault.addEventListener('click', () => {
+                if (confirm('Очистить все улики?')) {
+                    localStorage.removeItem('ghostHubEvidence');
+                    loadEvidence();
+                    updateVaultCount();
+                    AudioEngine.play('alert');
+                    showToast('Хранилище очищено');
+                }
+            });
+        }
     }
 
     function saveEvidence(data) {
@@ -730,7 +1200,6 @@ document.addEventListener('DOMContentLoaded', () => {
             emf: (Math.random() * 5).toFixed(2) + ' μT',
             noise: Math.floor(Math.random() * 40 + 30) + ' dB'
         });
-        // Keep only last 50
         evidence = evidence.slice(0, 50);
         localStorage.setItem('ghostHubEvidence', JSON.stringify(evidence));
         loadEvidence();
@@ -742,11 +1211,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!vaultList) return;
 
         const evidence = JSON.parse(localStorage.getItem('ghostHubEvidence') || '[]');
-        
         vaultList.innerHTML = '';
         
         if (evidence.length === 0) {
-            vaultList.innerHTML = '<div class="incident-empty">Нет сохраненных улик</div>';
+            vaultList.innerHTML = '<div class="vault-empty">Хранилище пусто</div>';
             return;
         }
 
@@ -761,58 +1229,49 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="evidence-data">EMF: ${item.emf} | Шум: ${item.noise}</div>
                 </div>
                 <div class="evidence-actions">
-                    <button class="evidence-btn" onclick="playEvidence(${item.id})">▶</button>
-                    <button class="evidence-btn" onclick="deleteEvidence(${item.id})">×</button>
+                    <button class="evidence-btn play-btn" data-id="${item.id}">▶</button>
+                    <button class="evidence-btn delete-btn" data-id="${item.id}">×</button>
                 </div>
             `;
             vaultList.appendChild(card);
         });
+
+        // Add event listeners to new buttons
+        vaultList.querySelectorAll('.play-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                AudioEngine.play('click');
+                showToast('Воспроизведение...');
+            });
+        });
+
+        vaultList.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                deleteEvidence(id);
+            });
+        });
     }
 
-    function updateVaultCount() {
-        const countEl = document.getElementById('vault-count');
-        if (countEl) {
-            const evidence = JSON.parse(localStorage.getItem('ghostHubEvidence') || '[]');
-            countEl.textContent = evidence.length;
-        }
-    }
-
-    window.playEvidence = function(id) {
-        // Simulate playback
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-        alert('Воспроизведение аудиозаписи...');
-    };
-
-    window.deleteEvidence = function(id) {
+    function deleteEvidence(id) {
         let evidence = JSON.parse(localStorage.getItem('ghostHubEvidence') || '[]');
         evidence = evidence.filter(item => item.id !== id);
         localStorage.setItem('ghostHubEvidence', JSON.stringify(evidence));
         loadEvidence();
         updateVaultCount();
-    };
+        AudioEngine.play('click');
+    }
 
-    // Export functions
-    window.exportEvidence = function(format) {
-        const evidence = JSON.parse(localStorage.getItem('ghostHubEvidence') || '[]');
-        
-        if (format === 'txt') {
-            const text = evidence.map(e => 
-                `[${e.time}] ${e.gps || e.coords} | EMF: ${e.emf} | Шум: ${e.noise}`
-            ).join('\n');
-            
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ghost-hub-evidence-${Date.now()}.txt`;
-            a.click();
-        } else if (format === 'pdf') {
-            // Simulate PDF export
-            alert('PDF экспорт подготовлен. В реальной версии здесь будет генерация PDF.');
+    function updateVaultCount() {
+        const countEl = document.getElementById('evidence-count');
+        const audioEl = document.getElementById('audio-count');
+        if (countEl) {
+            const evidence = JSON.parse(localStorage.getItem('ghostHubEvidence') || '[]');
+            countEl.textContent = evidence.length;
+            if (audioEl) audioEl.textContent = evidence.length;
         }
-    };
+    }
 
-    // Tremor with permission
+    // Tremor
     function initTremorWithPermission() {
         const canvas = document.getElementById('seismograph');
         if (!canvas) return;
@@ -821,13 +1280,12 @@ document.addEventListener('DOMContentLoaded', () => {
             typeof DeviceMotionEvent.requestPermission === 'function') {
             
             const permissionBtn = document.createElement('button');
-            permissionBtn.className = 'control-btn';
+            permissionBtn.className = 'navigator-action-btn primary';
             permissionBtn.innerHTML = '<span>🔓 РАЗРЕШИТЬ ДАТЧИКИ</span>';
             permissionBtn.style.marginBottom = '10px';
-            permissionBtn.style.width = '100%';
             
             const container = canvas.parentElement;
-            container.insertBefore(permissionBtn, canvas);
+            container.parentElement.insertBefore(permissionBtn, container);
             
             permissionBtn.addEventListener('click', () => {
                 DeviceMotionEvent.requestPermission()
@@ -836,12 +1294,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             permissionBtn.remove();
                             initTremor(true);
                         } else {
-                            permissionBtn.innerHTML = '<span>❌ ДОСТУП ЗАПРЕЩЕН</span>';
-                            permissionBtn.style.background = '#FF3333';
-                            setTimeout(() => {
-                                permissionBtn.remove();
-                                initTremor(false);
-                            }, 1500);
+                            showToast('Доступ запрещен', 'error');
+                            permissionBtn.remove();
+                            initTremor(false);
                         }
                     })
                     .catch(console.error);
@@ -863,7 +1318,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const historyZ = [];
         const maxHistory = 100;
         let sensitivity = 5;
-        let lastUpdate = Date.now();
         let isSimulating = !useRealSensors;
 
         if (useRealSensors && window.DeviceMotionEvent) {
@@ -879,38 +1333,29 @@ document.addEventListener('DOMContentLoaded', () => {
         function simulateTremor() {
             if (!isSimulating) return;
             
-            const now = Date.now();
-            if (now - lastUpdate > 50) {
-                const baseNoise = () => (Math.random() - 0.5) * 0.5;
-                const occasionalSpike = Math.random() > 0.98 ? (Math.random() - 0.5) * sensitivity : 0;
-                
-                updateTremorData(
-                    baseNoise() + occasionalSpike,
-                    baseNoise() + occasionalSpike * 0.5,
-                    9.8 + baseNoise() + occasionalSpike * 0.3
-                );
-                lastUpdate = now;
-            }
+            const baseNoise = () => (Math.random() - 0.5) * 0.5;
+            const occasionalSpike = Math.random() > 0.98 ? (Math.random() - 0.5) * sensitivity : 0;
+            
+            updateTremorData(
+                baseNoise() + occasionalSpike,
+                baseNoise() + occasionalSpike * 0.5,
+                9.8 + baseNoise() + occasionalSpike * 0.3
+            );
+            
             requestAnimationFrame(simulateTremor);
         }
         
-        if (isSimulating) {
-            simulateTremor();
-        }
+        if (isSimulating) simulateTremor();
 
         function updateTremorData(x, y, z) {
-            x = x || 0;
-            y = y || 0;
-            z = z || 9.8;
-
             if (historyX.length >= maxHistory) {
                 historyX.shift();
                 historyY.shift();
                 historyZ.shift();
             }
-            historyX.push(x);
-            historyY.push(y);
-            historyZ.push(z);
+            historyX.push(x || 0);
+            historyY.push(y || 0);
+            historyZ.push(z || 9.8);
 
             const mag = Math.sqrt(x*x + y*y + (z-9.8)*(z-9.8));
             const magEl = document.getElementById('magnitude');
@@ -925,6 +1370,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!alertEl.classList.contains('active')) {
                     alertEl.classList.add('active');
                     addTremorLog(mag.toFixed(2));
+                    AudioEngine.play('warning');
                 }
             } else if (alertEl) {
                 alertEl.classList.remove('active');
@@ -965,7 +1411,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const scale = canvas.height / 25;
 
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-            ctx.lineWidth = 1;
             for (let y = 0; y < canvas.height; y += 20) {
                 ctx.beginPath();
                 ctx.moveTo(0, y);
@@ -1002,7 +1447,6 @@ document.addEventListener('DOMContentLoaded', () => {
             drawAxis(historyZ, '#6699FF', 9.8, 'Z');
 
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(0, centerY);
             ctx.lineTo(canvas.width, centerY);
@@ -1011,183 +1455,6 @@ document.addEventListener('DOMContentLoaded', () => {
             requestAnimationFrame(draw);
         }
         draw();
-    }
-
-    // Ghost Eye Camera
-    function initGhostEye() {
-        const video = document.getElementById('ghost-eye-video');
-        const toggleBtn = document.getElementById('ghost-eye-toggle');
-        const gridBtn = document.getElementById('grid-toggle');
-        const container = document.querySelector('.camera-container');
-        
-        if (!video || !toggleBtn) return;
-
-        let stream = null;
-        let showGrid = true;
-
-        toggleBtn.addEventListener('click', async () => {
-            if (!stream) {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'environment' },
-                        audio: false 
-                    });
-                    video.srcObject = stream;
-                    video.play();
-                    toggleBtn.textContent = 'ВЫКЛЮЧИТЬ';
-                    toggleBtn.classList.add('active');
-                } catch (err) {
-                    alert('Доступ к камере запрещен');
-                }
-            } else {
-                stream.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-                stream = null;
-                toggleBtn.textContent = 'ВКЛЮЧИТЬ';
-                toggleBtn.classList.remove('active');
-            }
-        });
-
-        if (gridBtn) {
-            gridBtn.addEventListener('click', () => {
-                showGrid = !showGrid;
-                const grid = document.querySelector('.grid-overlay');
-                if (grid) grid.style.opacity = showGrid ? '1' : '0';
-                gridBtn.classList.toggle('active', showGrid);
-            });
-        }
-
-        // Histogram simulation
-        const histogram = document.querySelector('.histogram');
-        if (histogram) {
-            function updateHistogram() {
-                const bars = histogram.querySelectorAll('.histogram-bar');
-                bars.forEach(bar => {
-                    const height = Math.random() * 100;
-                    bar.style.height = `${height}%`;
-                });
-                requestAnimationFrame(updateHistogram);
-            }
-            updateHistogram();
-        }
-    }
-
-    // Sync Start
-    function initSyncStart() {
-        const syncBtn = document.getElementById('sync-start-btn');
-        if (!syncBtn) return;
-
-        let countdown = 5;
-        let countdownInterval = null;
-
-        syncBtn.addEventListener('click', () => {
-            if (syncBtn.classList.contains('counting')) {
-                // Cancel
-                clearInterval(countdownInterval);
-                syncBtn.classList.remove('counting');
-                syncBtn.innerHTML = `
-                    <span class="sync-icon">◈</span>
-                    <span>SYNC START</span>
-                `;
-                return;
-            }
-
-            syncBtn.classList.add('counting');
-            countdown = 5;
-            
-            countdownInterval = setInterval(() => {
-                syncBtn.innerHTML = `
-                    <span class="sync-countdown">${countdown}</span>
-                    <span>СИНХРОНИЗАЦИЯ...</span>
-                `;
-                
-                if (navigator.vibrate) navigator.vibrate(100);
-                
-                countdown--;
-                
-                if (countdown < 0) {
-                    clearInterval(countdownInterval);
-                    syncBtn.classList.remove('counting');
-                    syncBtn.innerHTML = `
-                        <span class="sync-icon">✓</span>
-                        <span>ЗАПИСЬ АКТИВНА</span>
-                    `;
-                    
-                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                    
-                    // Trigger recording on all modules
-                    document.getElementById('record-btn')?.click();
-                    
-                    setTimeout(() => {
-                        syncBtn.innerHTML = `
-                            <span class="sync-icon">◈</span>
-                            <span>SYNC START</span>
-                        `;
-                    }, 3000);
-                }
-            }, 1000);
-        });
-    }
-
-    // Cerber AI
-    function initCerberAI() {
-        const input = document.getElementById('cerber-input');
-        const sendBtn = document.getElementById('cerber-send');
-        const chat = document.getElementById('cerber-chat');
-        
-        if (!input || !sendBtn || !chat) return;
-
-        const responses = {
-            'статус': 'Все системы в норме. Группа на связи. Аномалий не обнаружено.',
-            'связь': 'QUILL-MESH активен. 4 узла в сети. Задержка 12мс.',
-            'радиация': 'Фон в норме. 0.03 μT. Датчики калиброваны.',
-            'сударь': 'Сударь: сигнал 3/4, батарея 64%, пульс 68 BPM.',
-            'полина': 'Полина: сигнал 4/4, батарея 92%, пульс 75 BPM.',
-            'чернец': 'Чернец: сигнал 2/4, батарея 45%, пульс 70 BPM.',
-            'дима': 'Командир: сигнал 4/4, батарея 87%, пульс 72 BPM.',
-            'помощь': 'Доступные команды: статус, связь, радиация, [имя].'
-        };
-
-        function addCerberMessage(text, isUser = false) {
-            const msg = document.createElement('div');
-            msg.className = 'cerber-message';
-            msg.style.color = isUser ? '#FF8C00' : '#00E5FF';
-            msg.innerHTML = isUser ? `> ${text}` : `CERBER: ${text}`;
-            chat.appendChild(msg);
-            chat.scrollTop = chat.scrollHeight;
-            
-            if (!isUser) {
-                speakResponse(text);
-            }
-        }
-
-        sendBtn.addEventListener('click', () => {
-            const text = input.value.trim().toLowerCase();
-            if (!text) return;
-            
-            addCerberMessage(text, true);
-            input.value = '';
-            
-            // Find response
-            let response = 'Команда не распознана. Скажите "помощь" для списка команд.';
-            for (const [key, value] of Object.entries(responses)) {
-                if (text.includes(key)) {
-                    response = value;
-                    break;
-                }
-            }
-            
-            setTimeout(() => addCerberMessage(response), 500);
-        });
-
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendBtn.click();
-        });
-
-        // Initial greeting
-        setTimeout(() => {
-            addCerberMessage('Cerber AI активен. Готов к выполнению команд.');
-        }, 1000);
     }
 
     // Add incident to log
@@ -1213,30 +1480,5 @@ document.addEventListener('DOMContentLoaded', () => {
         if (list.children.length > 5) {
             list.removeChild(list.lastChild);
         }
-    }
-
-    // Protocol toggles
-    function initProtocols() {
-        document.querySelectorAll('.protocol-card').forEach(card => {
-            const header = card.querySelector('.protocol-header');
-            const toggle = card.querySelector('.protocol-toggle');
-            const icon = card.querySelector('.protocol-icon');
-            
-            header.addEventListener('click', () => {
-                card.classList.toggle('active');
-                const isActive = card.classList.contains('active');
-                
-                toggle.textContent = isActive ? 'ON' : 'OFF';
-                icon.style.color = isActive ? 'var(--success)' : 'var(--danger)';
-                
-                if (isActive) {
-                    toggle.style.color = 'var(--success)';
-                    toggle.style.background = 'rgba(0, 255, 136, 0.1)';
-                } else {
-                    toggle.style.color = 'var(--danger)';
-                    toggle.style.background = 'rgba(255, 51, 51, 0.1)';
-                }
-            });
-        });
     }
 });
