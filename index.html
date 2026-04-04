@@ -63,7 +63,6 @@
             <div class="boot-line">Loading QUILL-CHAT PROTOCOL...</div>
             <div class="boot-line">Loading VOICE COMMANDER...</div>
             <div class="boot-line">Loading EVIDENCE VAULT...</div>
-            <div class="boot-line">Loading SENSOR-HUB...</div>
             <div class="boot-line">Loading NAVIGATOR MODULE...</div>
             <div class="boot-line">[OK] All systems operational</div>
             <div class="boot-line blink">ABSOLUTE CONTROL ENABLED</div>
@@ -132,10 +131,6 @@
             <button class="nav-btn" data-view="navigator">
                 <span class="nav-icon">🧭</span>
                 <span class="nav-label">НАВИГАТОР</span>
-            </button>
-            <button class="nav-btn" data-view="spectro">
-                <span class="nav-icon">▓</span>
-                <span class="nav-label">СПЕКТР</span>
             </button>
             <button class="nav-btn" data-view="tremor">
                 <span class="nav-icon">≃</span>
@@ -331,50 +326,6 @@
                             <span class="quick-name">НЬЮ-ЙОРК</span>
                             <span class="quick-coords">40.7128, -74.0060</span>
                         </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Spectro View -->
-            <div id="spectro-view" class="view-section">
-                <div class="spectro-header">
-                    <h2 class="section-title">// SPECTRO-SCAN</h2>
-                    <div class="spectro-status">
-                        <span class="status-dot active"></span>
-                        <span class="status-text">АНАЛИЗ АКТИВЕН</span>
-                    </div>
-                </div>
-                
-                <div class="spectro-info">
-                    <div class="freq-range">20Гц — 50Гц (ИНФРАЗВУК)</div>
-                    <div class="anomaly-counter">Аномалий: <span id="anomaly-count">0</span></div>
-                </div>
-
-                <div class="spectro-container">
-                    <canvas id="spectrogram"></canvas>
-                    <div class="spectro-legend">
-                        <div class="legend-item">
-                            <span class="legend-color low"></span>
-                            <span>Норма</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-color mid"></span>
-                            <span>Шум</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-color high"></span>
-                            <span>Аномалия</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="spectro-analysis">
-                    <div class="analysis-line">
-                        <span class="analysis-label">ИИ Cerber:</span>
-                        <span id="cerber-status" class="analysis-value">Сканирование...</span>
-                    </div>
-                    <div class="analysis-detail" id="cerber-detail">
-                        Ожидание входных данных...
                     </div>
                 </div>
             </div>
@@ -712,4 +663,4 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="script.js"></script>
 </body>
-</html>
+                                                                      </html>
