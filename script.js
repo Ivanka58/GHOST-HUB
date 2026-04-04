@@ -100,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initClock();
         initMap();
         initWaveform();
-        initSpectrogram(); // NO SOUNDS HERE
         initNavigation();
         initQuickActions();
         initGeolocation();
@@ -291,106 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             requestAnimationFrame(draw);
         }
-        draw();
-    }
-
-    // Spectrogram - NO SOUNDS HERE
-    function initSpectrogram() {
-        const canvas = document.getElementById('spectrogram');
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        const width = canvas.offsetWidth || 300;
-        const height = 200;
-        canvas.width = width;
-        canvas.height = height;
-
-        const bins = 30;
-        const history = [];
-        const maxHistory = 60;
-        let anomalyCount = 0;
-        
-        function generateFreqData() {
-            const data = [];
-            for (let i = 0; i < bins; i++) {
-                let value = Math.random() * 0.3;
-                
-                if (i < 10 && Math.random() > 0.95) {
-                    value = 0.8 + Math.random() * 0.2;
-                    // NO SOUND TRIGGER HERE - REMOVED
-                }
-                
-                if (i > 15 && i < 25 && Math.random() > 0.98) {
-                    value = 0.9;
-                }
-                
-                data.push(value);
-            }
-            return data;
-        }
-
-        function draw() {
-            if (history.length >= maxHistory) {
-                history.shift();
-            }
-            history.push(generateFreqData());
-
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, width, height);
-
-            const binWidth = width / bins;
-            const rowHeight = height / maxHistory;
-
-            for (let t = 0; t < history.length; t++) {
-                const row = history[t];
-                const y = height - (t * rowHeight) - rowHeight;
-                
-                for (let f = 0; f < bins; f++) {
-                    const value = row[f];
-                    const x = f * binWidth;
-                    
-                    let r, g, b;
-                    if (value < 0.3) {
-                        r = 0;
-                        g = Math.floor(255 * (value / 0.3));
-                        b = 136;
-                    } else if (value < 0.7) {
-                        r = 255;
-                        g = Math.floor(170 * ((0.7 - value) / 0.4));
-                        b = 0;
-                    } else {
-                        r = 255;
-                        g = Math.floor(51 * ((1 - value) / 0.3));
-                        b = 51;
-                        
-                        if (f < 10 && t === history.length - 1) {
-                            anomalyCount++;
-                            document.getElementById('anomaly-count').textContent = anomalyCount;
-                            updateCerberStatus('АНОМАЛИЯ В ИНФРАЗВУКЕ!', 'Обнаружен пик в диапазоне 20-50Гц. Возможно присутствие субъекта.');
-                            // NO SOUND HERE - REMOVED
-                        }
-                    }
-                    
-                    ctx.fillStyle = `rgb(${r},${g},${b})`;
-                    ctx.fillRect(x, y, binWidth - 1, rowHeight - 1);
-                }
-            }
-
-            ctx.fillStyle = '#888';
-            ctx.font = '8px JetBrains Mono';
-            ctx.fillText('20Hz', 2, height - 4);
-            ctx.fillText('50Hz', width - 25, height - 4);
-            
-            requestAnimationFrame(draw);
-        }
-
-        function updateCerberStatus(status, detail) {
-            const statusEl = document.getElementById('cerber-status');
-            const detailEl = document.getElementById('cerber-detail');
-            if (statusEl) statusEl.textContent = status;
-            if (detailEl) detailEl.textContent = detail;
-        }
-
         draw();
     }
 
@@ -721,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     }
 
-    // ==================== DEAD MAN SWITCH - FIXED ====================
+    // ==================== DEAD MAN SWITCH ====================
     function initDeadManSwitch() {
         const deadmanBtn = document.getElementById('deadman-btn');
         const deadmanModal = document.getElementById('deadman-modal');
@@ -766,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 stopBtn.classList.remove('hidden');
                 
                 // Update status
-                statusEl.innerHTML = '<span class="status-icon">▶</span><span class="status-text">ПРОТОКОЛ АКТИВЕН</span>';
+                statusEl.innerHTML = '<span class="status-icon">▶</span><span class="status-text">ПРОТОКОЛ АККТИВЕН</span>';
                 statusEl.style.color = 'var(--danger)';
                 
                 // Show mini display
