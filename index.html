@@ -3,11 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0A0A0A">
+    <meta name="msapplication-TileColor" content="#0A0A0A">
+    <meta name="description" content="Тактическое приложение для призрачных охотников">
+    
     <title>GHOST-HUB: Stalker Protocol v3.1</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* Отключаем зум при двойном тапе */
+        * {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+        
+        html, body {
+            overflow-x: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overscroll-behavior: none;
+        }
+        
+        /* Скрываем полосы прокрутки но оставляем функционал */
+        .content-area::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+        
+        /* Фикс для Android WebView */
+        input, textarea {
+            user-select: text;
+        }
+    </style>
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -145,7 +185,7 @@
                 </div>
             </div>
 
-            <!-- NAVIGATOR VIEW - NEW -->
+            <!-- NAVIGATOR VIEW -->
             <div id="navigator-view" class="view-section">
                 <div class="navigator-header">
                     <h2 class="section-title">// NAVIGATOR MODULE</h2>
