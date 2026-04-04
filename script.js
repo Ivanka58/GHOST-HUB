@@ -29,21 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => this.playTone(150, 0.3, 'sawtooth', 0.2), 150);
             };
             
-            // Anomaly detected - eerie sound
-            this.sounds.anomaly = () => {
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.5);
-            };
-            
             // Dead man warning - urgent beeping
             this.sounds.warning = () => {
                 this.playTone(800, 0.1, 'square', 0.15);
@@ -115,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initClock();
         initMap();
         initWaveform();
-        initSpectrogram();
+        initSpectrogram(); // NO SOUNDS HERE
         initNavigation();
         initQuickActions();
         initGeolocation();
@@ -124,8 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         initVoiceCommand();
         initEvidenceVault();
         initTremorWithPermission();
-        initNavigator(); // NEW
-        initDeadManSwitch(); // FIXED
+        initNavigator();
+        initDeadManSwitch();
     }
 
     // Clock
@@ -309,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
         draw();
     }
 
-    // Spectrogram
+    // Spectrogram - NO SOUNDS HERE
     function initSpectrogram() {
         const canvas = document.getElementById('spectrogram');
         if (!canvas) return;
@@ -332,10 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (i < 10 && Math.random() > 0.95) {
                     value = 0.8 + Math.random() * 0.2;
-                    // Trigger anomaly sound
-                    if (audioInitialized && Math.random() > 0.7) {
-                        AudioEngine.play('anomaly');
-                    }
+                    // NO SOUND TRIGGER HERE - REMOVED
                 }
                 
                 if (i > 15 && i < 25 && Math.random() > 0.98) {
@@ -385,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             anomalyCount++;
                             document.getElementById('anomaly-count').textContent = anomalyCount;
                             updateCerberStatus('АНОМАЛИЯ В ИНФРАЗВУКЕ!', 'Обнаружен пик в диапазоне 20-50Гц. Возможно присутствие субъекта.');
+                            // NO SOUND HERE - REMOVED
                         }
                     }
                     
