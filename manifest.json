@@ -1,0 +1,17 @@
+{
+  "name": "GHOST-HUB: Stalker Protocol",
+  "short_name": "GHOST-HUB",
+  "description": "Тактическое приложение для призрачных охотников",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
