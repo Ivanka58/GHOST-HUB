@@ -1,4 +1,4 @@
-name: Build Android APK for Dima
+name: Build Android APK for Ghost Hub
 
 on:
   push:
@@ -32,9 +32,15 @@ jobs:
         run: |
           cat > capacitor.config.json << 'EOF'
           {
-            "appId": "com.dima.app",
-            "appName": "DimaApp",
-            "webDir": "www"
+            "appId": "com.ghost.hub",
+            "appName": "Ghost Hub",
+            "webDir": "www",
+            "plugins": {
+              "SplashScreen": {
+                "launchShowDuration": 2000,
+                "backgroundColor": "#000000"
+              }
+            }
           }
           EOF
       
@@ -77,6 +83,33 @@ jobs:
           }
           EOF
       
+      # Устанавливаем иконку приложения
+      - name: Generate app icons
+        run: |
+          cd android/app/src/main/res
+          
+          # Создаём папки для иконок
+          mkdir -p mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi
+          
+          # Конвертируем icon.png в разные размеры
+          # Для этого установим ImageMagick
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          
+          # Генерируем иконки разных размеров
+          convert /home/runner/work/GHOST-HUB/GHOST-HUB/icon.png -resize 72x72 mipmap-hdpi/ic_launcher.png
+          convert /home/runner/work/GHOST-HUB/GHOST-HUB/icon.png -resize 48x48 mipmap-mdpi/ic_launcher.png
+          convert /home/runner/work/GHOST-HUB/GHOST-HUB/icon.png -resize 96x96 mipmap-xhdpi/ic_launcher.png
+          convert /home/runner/work/GHOST-HUB/GHOST-HUB/icon.png -resize 144x144 mipmap-xxhdpi/ic_launcher.png
+          convert /home/runner/work/GHOST-HUB/GHOST-HUB/icon.png -resize 192x192 mipmap-xxxhdpi/ic_launcher.png
+          
+          # Копируем как foreground тоже
+          cp mipmap-hdpi/ic_launcher.png mipmap-hdpi/ic_launcher_foreground.png
+          cp mipmap-mdpi/ic_launcher.png mipmap-mdpi/ic_launcher_foreground.png
+          cp mipmap-xhdpi/ic_launcher.png mipmap-xhdpi/ic_launcher_foreground.png
+          cp mipmap-xxhdpi/ic_launcher.png mipmap-xxhdpi/ic_launcher_foreground.png
+          cp mipmap-xxxhdpi/ic_launcher.png mipmap-xxxhdpi/ic_launcher_foreground.png
+        continue-on-error: true
+      
       - name: Sync project
         run: npx cap sync android
       
@@ -86,7 +119,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
       
-      # Собираем DEBUG версию (уже подписана автоматически)
       - name: Build Debug APK
         run: |
           cd android
@@ -96,6 +128,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dima-App-Debug
+          name: Ghost-Hub-Debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
