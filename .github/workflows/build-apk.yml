@@ -41,7 +41,6 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
       
-      # Исправляем variables.gradle для Capacitor 6
       - name: Fix Android variables
         run: |
           cat > android/variables.gradle << 'EOF'
@@ -63,7 +62,6 @@ jobs:
           }
           EOF
       
-      # Исправляем конфликт Kotlin
       - name: Fix Kotlin dependencies
         run: |
           cat >> android/build.gradle << 'EOF'
@@ -88,15 +86,16 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
       
-      - name: Build Release APK
+      # Собираем DEBUG версию (уже подписана автоматически)
+      - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleDebug --no-daemon
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dima-App-Release
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          name: Dima-App-Debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
