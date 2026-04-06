@@ -23,7 +23,6 @@ jobs:
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android
       
-      # Копируем файлы в www папку
       - name: Prepare web files
         run: |
           mkdir -p www
@@ -41,6 +40,38 @@ jobs:
       
       - name: Add Android platform
         run: npx cap add android
+      
+      # Исправляем конфликт Kotlin
+      - name: Fix Kotlin dependencies
+        run: |
+          cat > android/build.gradle << 'EOF'
+          // Top-level build file
+          buildscript {
+              ext.kotlin_version = '1.8.22'
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.0'
+                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+              }
+          }
+          
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              configurations.all {
+                  resolutionStrategy {
+                      force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"
+                      force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
+                      force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
+                  }
+              }
+          }
+          EOF
       
       - name: Sync project
         run: npx cap sync android
