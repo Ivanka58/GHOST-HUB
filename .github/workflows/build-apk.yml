@@ -1,0 +1,61 @@
+name: Build Android APK for Dima
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:  # Можно запустить вручную
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Качаем ваш код
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 2. Устанавливаем Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      # 3. Создаём package.json и ставим Capacitor
+      - name: Setup Capacitor
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+      
+      # 4. Инициализируем проект
+      - name: Init Capacitor
+        run: npx cap init "DimaApp" "com.dima.app" --web-dir . --skip-npm-install
+      
+      # 5. Добавляем Android
+      - name: Add Android platform
+        run: npx cap add android
+      
+      # 6. Синхронизируем
+      - name: Sync project
+        run: npx cap sync android
+      
+      # 7. Устанавливаем Java 21
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      
+      # 8. Собираем APK
+      - name: Build Release APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      
+      # 9. Загружаем APK как артефакт
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dima-App-Release
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 30
