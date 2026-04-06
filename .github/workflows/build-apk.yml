@@ -23,8 +23,16 @@ jobs:
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android
       
-      - name: Init Capacitor
-        run: npx cap init "DimaApp" "com.dima.app" --web-dir .
+      # Создаём config вручную
+      - name: Create Capacitor config
+        run: |
+          cat > capacitor.config.json << 'EOF'
+          {
+            "appId": "com.dima.app",
+            "appName": "DimaApp",
+            "webDir": "."
+          }
+          EOF
       
       - name: Add Android platform
         run: npx cap add android
