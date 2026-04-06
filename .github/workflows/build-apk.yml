@@ -21,7 +21,7 @@ jobs:
       - name: Setup Capacitor
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
       
       - name: Prepare web files
         run: |
@@ -41,7 +41,7 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
       
-      # Исправляем variables.gradle
+      # Исправляем variables.gradle для Capacitor 6
       - name: Fix Android variables
         run: |
           cat > android/variables.gradle << 'EOF'
@@ -63,10 +63,9 @@ jobs:
           }
           EOF
       
-      # Исправляем конфликт Kotlin в allprojects
+      # Исправляем конфликт Kotlin
       - name: Fix Kotlin dependencies
         run: |
-          # Добавляем resolutionStrategy в конец существующего build.gradle
           cat >> android/build.gradle << 'EOF'
           
           allprojects {
