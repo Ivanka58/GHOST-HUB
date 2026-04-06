@@ -23,14 +23,19 @@ jobs:
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android
       
-      # Создаём config вручную
+      # Копируем файлы в www папку
+      - name: Prepare web files
+        run: |
+          mkdir -p www
+          cp index.html style.css script.js manifest.json icon.png www/
+      
       - name: Create Capacitor config
         run: |
           cat > capacitor.config.json << 'EOF'
           {
             "appId": "com.dima.app",
             "appName": "DimaApp",
-            "webDir": "."
+            "webDir": "www"
           }
           EOF
       
