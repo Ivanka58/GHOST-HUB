@@ -41,33 +41,40 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
       
-      # Исправляем конфликт Kotlin
+      # Исправляем variables.gradle
+      - name: Fix Android variables
+        run: |
+          cat > android/variables.gradle << 'EOF'
+          ext {
+              minSdkVersion = 22
+              compileSdkVersion = 34
+              targetSdkVersion = 34
+              androidxActivityVersion = '1.8.0'
+              androidxAppCompatVersion = '1.6.1'
+              androidxCoordinatorLayoutVersion = '1.2.0'
+              androidxCoreVersion = '1.12.0'
+              androidxFragmentVersion = '1.6.2'
+              coreSplashScreenVersion = '1.0.1'
+              androidxWebkitVersion = '1.9.0'
+              junitVersion = '4.13.2'
+              androidxJunitVersion = '1.1.5'
+              androidxEspressoCoreVersion = '3.5.1'
+              cordovaAndroidVersion = '10.1.1'
+          }
+          EOF
+      
+      # Исправляем конфликт Kotlin в allprojects
       - name: Fix Kotlin dependencies
         run: |
-          cat > android/build.gradle << 'EOF'
-          // Top-level build file
-          buildscript {
-              ext.kotlin_version = '1.8.22'
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.2.0'
-                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-              }
-          }
+          # Добавляем resolutionStrategy в конец существующего build.gradle
+          cat >> android/build.gradle << 'EOF'
           
           allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
               configurations.all {
                   resolutionStrategy {
-                      force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"
-                      force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
-                      force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
+                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
                   }
               }
           }
