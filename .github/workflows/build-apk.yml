@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -229,6 +229,8 @@ jobs:
         run: |
           mkdir -p android/app/src/main/res/drawable
           
+          rm -f android/app/src/main/res/drawable/splash.png
+          
           cat > android/app/src/main/res/drawable/splash.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -306,24 +308,32 @@ jobs:
           ./gradlew assembleRelease --no-daemon
         continue-on-error: true
       
-      - name: Build Debug APK (fallback)
+      - name: Build Debug APK
         if: failure()
         working-directory: ghost-hub-v3.1/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
       
-      - name: Rename and move APK
+      - name: Check and rename APK
         run: |
-          cd ghost-hub-v3.1/android/app/build/outputs/apk
-          if [ -f release/app-release-unsigned.apk ]; then
-              mv release/app-release-unsigned.apk Ghost-Hub-v3.1.apk
-              echo "APK created: Ghost-Hub-v3.1.apk"
-          elif [ -f debug/app-debug.apk ]; then
-              mv debug/app-debug.apk Ghost-Hub-v3.1-Debug.apk
-              echo "APK created: Ghost-Hub-v3.1-Debug.apk"
+          ls -la ghost-hub-v3.1/android/app/build/outputs/apk/ || echo "APK directory not found"
+          
+          if [ -d "ghost-hub-v3.1/android/app/build/outputs/apk/release" ]; then
+            ls -la ghost-hub-v3.1/android/app/build/outputs/apk/release/
+            if [ -f "ghost-hub-v3.1/android/app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+              mv ghost-hub-v3.1/android/app/build/outputs/apk/release/app-release-unsigned.apk ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1.apk
+              echo "APK_PATH=ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1.apk" >> $GITHUB_ENV
+            fi
           fi
-          ls -la
+          
+          if [ -d "ghost-hub-v3.1/android/app/build/outputs/apk/debug" ]; then
+            ls -la ghost-hub-v3.1/android/app/build/outputs/apk/debug/
+            if [ -f "ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+              mv ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Debug.apk
+              echo "APK_PATH=ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Debug.apk" >> $GITHUB_ENV
+            fi
+          fi
       
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
