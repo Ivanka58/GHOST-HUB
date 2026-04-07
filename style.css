@@ -1304,6 +1304,34 @@ body.night-mode {
     to { transform: rotate(360deg); }
 }
 
+.radar-arrow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    color: var(--accent-orange);
+    text-shadow: 0 0 10px var(--accent-orange);
+    z-index: 10;
+    transition: transform 0.1s;
+}
+
+.radar-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.radar-heading, .radar-position {
+    background: var(--bg-secondary);
+    padding: 8px;
+    border-radius: 4px;
+    text-align: center;
+}
+
 .radar-alert {
     background: var(--danger);
     color: var(--bg-primary);
@@ -1417,6 +1445,13 @@ body.night-mode {
     background: var(--accent-cyan);
     border-radius: 50%;
     cursor: pointer;
+}
+
+#sensitivity-value {
+    min-width: 20px;
+    text-align: center;
+    color: var(--accent-cyan);
+    font-weight: 700;
 }
 
 .tremor-display {
@@ -1905,6 +1940,13 @@ body.night-mode {
     border-color: var(--success);
 }
 
+.equip-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 20px;
+}
+
 /* Pulse View */
 .pulse-header {
     display: flex;
@@ -2082,6 +2124,12 @@ body.night-mode {
     font-weight: 600;
 }
 
+.chat-message.alarm {
+    background: var(--danger);
+    color: var(--bg-primary);
+    border: 2px solid var(--warning);
+}
+
 .chat-author {
     font-size: 10px;
     font-weight: 700;
@@ -2092,6 +2140,10 @@ body.night-mode {
 .chat-message.outgoing .chat-author {
     color: var(--bg-primary);
     opacity: 0.8;
+}
+
+.chat-message.alarm .chat-author {
+    color: var(--bg-primary);
 }
 
 .chat-time {
@@ -2483,6 +2535,14 @@ body.night-mode {
     width: 100%;
 }
 
+/* Record Menu & Log Menu Modal */
+.record-menu-actions,
+.log-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 4px;
@@ -2502,9 +2562,13 @@ body.night-mode {
     display: none !important;
 }
 
-/* Leaflet Custom Styles */
+/* Leaflet Custom Styles - NEUTRAL MAP */
 .leaflet-container {
     background: #0A0A0A !important;
+}
+
+.leaflet-control-attribution {
+    display: none !important;
 }
 
 .leaflet-popup-content-wrapper {
@@ -2554,6 +2618,43 @@ body.night-mode {
 .toast.error {
     border-color: var(--danger);
     color: var(--danger);
+}
+
+/* Haptic feedback class */
+.haptic {
+    transition: transform 0.05s;
+}
+
+.haptic:active {
+    transform: scale(0.95);
+}
+
+/* Device found in radar */
+.device-found {
+    background: var(--bg-primary);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--danger);
+    animation: slideIn 0.3s ease;
+}
+
+.device-signal {
+    font-size: 10px;
+    color: var(--warning);
+    margin-bottom: 4px;
+}
+
+.device-name {
+    font-size: 12px;
+    color: var(--text-primary);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.device-distance {
+    font-size: 10px;
+    color: var(--text-secondary);
 }
 
 /* Swipe Animation */
