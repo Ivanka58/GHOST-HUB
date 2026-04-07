@@ -30,7 +30,8 @@ jobs:
           mkdir -p www
           cp index.html style.css script.js supabase.js service-worker.js manifest.json www/
           mkdir -p www/icons
-          cp icon.png www/ 2>/dev/null || echo "Icon will be generated"
+          cp icon.png www/ 2>/dev/null || echo "No icon"
+          ls -la www/
       
       - name: Inject environment variables
         working-directory: ghost-hub-v3.1
@@ -50,18 +51,21 @@ jobs:
             "appId": "ru.ghost.hub",
             "appName": "Ghost Hub",
             "webDir": "www",
+            "bundledWebRuntime": false,
             "server": {
-              "androidScheme": "https"
+              "androidScheme": "https",
+              "cleartext": true
             },
             "plugins": {
               "SplashScreen": {
-                "launchShowDuration": 3000,
+                "launchShowDuration": 2000,
                 "launchAutoHide": true,
                 "backgroundColor": "#0A0A0A",
                 "androidSplashResourceName": "splash",
                 "androidScaleType": "CENTER_CROP",
-                "showSpinner": true,
-                "spinnerColor": "#FF8C00"
+                "showSpinner": false,
+                "splashFullScreen": true,
+                "splashImmersive": true
               },
               "StatusBar": {
                 "style": "DARK",
@@ -147,15 +151,17 @@ jobs:
                   android:roundIcon="@mipmap/ic_launcher_round"
                   android:supportsRtl="true"
                   android:theme="@style/AppTheme"
-                  android:usesCleartextTraffic="true">
+                  android:usesCleartextTraffic="true"
+                  android:hardwareAccelerated="true">
                   
                   <activity
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|screenLayout|smallestScreenSize"
                       android:name="com.ghost.hub.MainActivity"
                       android:label="@string/title_activity_main"
                       android:theme="@style/AppTheme.NoActionBarLaunch"
                       android:launchMode="singleTask"
-                      android:exported="true">
+                      android:exported="true"
+                      android:screenOrientation="portrait">
                       
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -170,11 +176,6 @@ jobs:
                       </intent-filter>
                       
                   </activity>
-                  
-                  <service
-                      android:name="com.google.android.gms.metadata.ModuleDependencies"
-                      android:enabled="false"
-                      android:exported="false" />
                   
                   <provider
                       android:name="androidx.core.content.FileProvider"
@@ -230,18 +231,14 @@ jobs:
           mkdir -p android/app/src/main/res/drawable
           
           rm -f android/app/src/main/res/drawable/splash.png
+          rm -f android/app/src/main/res/drawable/splash.xml
           
-          cat > android/app/src/main/res/drawable/splash.xml << 'EOF'
+          cat > android/app/src/main/res/drawable/ic_launcher_background.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-              <item android:drawable="@color/splash_background" />
-              <item
-                  android:width="120dp"
-                  android:height="120dp"
-                  android:gravity="center">
-                  <bitmap android:src="@mipmap/ic_launcher_foreground" />
-              </item>
-          </layer-list>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#0A0A0A"/>
+          </shape>
           EOF
           
           mkdir -p android/app/src/main/res/values
@@ -271,8 +268,8 @@ jobs:
                   <item name="android:background">@null</item>
               </style>
               
-              <style name="AppTheme.NoActionBarLaunch" parent="AppTheme.NoActionBar">
-                  <item name="android:windowBackground">@drawable/splash</item>
+              <style name="AppTheme.NoActionBarLaunch" parent="Theme.AppCompat.Light.NoActionBar">
+                  <item name="android:windowBackground">@drawable/ic_launcher_background</item>
               </style>
           </resources>
           EOF
@@ -291,9 +288,13 @@ jobs:
           </paths>
           EOF
       
-      - name: Sync project
+      - name: Sync Capacitor
         working-directory: ghost-hub-v3.1
         run: npx cap sync android
+      
+      - name: Copy web assets to Android
+        working-directory: ghost-hub-v3.1
+        run: npx cap copy android
       
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -301,22 +302,27 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
       
-      - name: Build Debug APK (signed)
+      - name: Build Debug APK
         working-directory: ghost-hub-v3.1/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
       
-      - name: Check APK
+      - name: Check APK and assets
         run: |
+          echo "=== Checking APK ==="
           ls -la ghost-hub-v3.1/android/app/build/outputs/apk/debug/
-          cp ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Signed.apk
+          
+          echo "=== Checking assets in APK ==="
+          unzip -l ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk | grep -E "(www|index|assets)" | head -20
+          
+          cp ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk ghost-hub-v3.1/Ghost-Hub-v3.1.apk
       
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Ghost-Hub-v3.1-APK
-          path: ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Signed.apk
+          path: ghost-hub-v3.1/Ghost-Hub-v3.1.apk
           retention-days: 30
       
       - name: Create Release Info
