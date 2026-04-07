@@ -27,8 +27,9 @@ jobs:
         run: |
           mkdir -p www
           cp index.html style.css script.js supabase.js service-worker.js manifest.json www/
-          mkdir -p www/icons
-          cp icon.png www/ 2>/dev/null || echo "No icon"
+          mkdir -p www/esp-firmwares
+          cp camera.ino pulse.ino relay.ino www/esp-firmwares/ 2>/dev/null || echo "No firmware files"
+          cp icon.png www/
           ls -la www/
       
       - name: Inject environment variables
@@ -135,6 +136,7 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
               
               <application
                   android:allowBackup="true"
@@ -144,11 +146,12 @@ jobs:
                   android:supportsRtl="true"
                   android:theme="@style/AppTheme"
                   android:usesCleartextTraffic="true"
-                  android:hardwareAccelerated="true">
+                  android:hardwareAccelerated="true"
+                  android:requestLegacyExternalStorage="true">
                   
                   <activity
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|screenLayout|smallestScreenSize"
-                      android:name="com.ghost.hub.MainActivity"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+                      android:name="ru.ghost.hub.MainActivity"
                       android:label="@string/title_activity_main"
                       android:theme="@style/AppTheme.NoActionBarLaunch"
                       android:launchMode="singleTask"
@@ -211,15 +214,12 @@ jobs:
               convert "$ICON_SOURCE" -resize 96x96 mipmap-xhdpi/ic_launcher_round.png
               convert "$ICON_SOURCE" -resize 144x144 mipmap-xxhdpi/ic_launcher_round.png
               convert "$ICON_SOURCE" -resize 192x192 mipmap-xxxhdpi/ic_launcher_round.png
-          else
-              echo "No icon.png found, using default Android icon"
           fi
         continue-on-error: true
       
       - name: Create splash screen drawable
         run: |
           mkdir -p android/app/src/main/res/drawable
-          
           rm -f android/app/src/main/res/drawable/splash.png
           rm -f android/app/src/main/res/drawable/splash.xml
           
@@ -289,64 +289,108 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
       
-      - name: Build Debug APK
+      - name: Generate signing key
+        run: |
+          keytool -genkey -v \
+            -keystore ghost-hub.keystore \
+            -alias ghost-hub \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass ghosthub2026 \
+            -keypass ghosthub2026 \
+            -dname "CN=Ghost Hub, OU=Development, O=Ghost Hub, L=Moscow, ST=Moscow, C=RU"
+      
+      - name: Setup signing config
+        run: |
+          cat >> android/app/build.gradle << 'EOF'
+          
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('../../ghost-hub.keystore')
+                      storePassword 'ghosthub2026'
+                      keyAlias 'ghost-hub'
+                      keyPassword 'ghosthub2026'
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+          }
+          EOF
+      
+      - name: Build Release APK
         working-directory: android
         run: |
           chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+      
+      - name: Build Debug APK (fallback)
+        if: failure()
+        working-directory: android
+        run: |
           ./gradlew assembleDebug --no-daemon --stacktrace
       
-      - name: Check APK and assets
+      - name: Check and rename APK
         run: |
-          echo "=== Checking APK ==="
-          ls -la android/app/build/outputs/apk/debug/
+          mkdir -p output
           
-          echo "=== Checking assets in APK ==="
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -E "(www|index|assets)" | head -20
+          if [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
+              cp android/app/build/outputs/apk/release/app-release.apk output/Ghost-Hub-v3.1.apk
+              echo "Release APK built successfully"
+          elif [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+              cp android/app/build/outputs/apk/debug/app-debug.apk output/Ghost-Hub-v3.1.apk
+              echo "Debug APK built (release failed)"
+          fi
           
-          cp android/app/build/outputs/apk/debug/app-debug.apk Ghost-Hub-v3.1.apk
+          ls -la output/
       
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Ghost-Hub-v3.1-APK
-          path: Ghost-Hub-v3.1.apk
-          retention-days: 30
+          path: output/Ghost-Hub-v3.1.apk
+          retention-days: 90
       
       - name: Create Release Info
         run: |
-          cat > release-info.txt << 'EOF'
+          cat > output/release-info.txt << 'EOF'
           GHOST-HUB v3.1 Build Info
           =========================
           
-          Дата сборки: ${{ github.run_date }}
+          Дата сборки: ${{ github.run_id }}
           Коммит: ${{ github.sha }}
           
-          Функции:
-          - P2P чат без интернета
-          - Навигатор с картами (нейтральный провайдер)
-          - Детектор жучков (Bluetooth/WiFi сканер)
-          - Сейсмо-анализатор (акселерометр)
-          - Фоновый аудиорекордер
-          - Логи событий с аудио
-          - Управление оборудованием (ESP32)
-          - Мониторинг пульса (BLE)
-          - Голосовое управление
-          - Dead Man Switch (10 мин)
-          - Offline-first PWA
+          ИСПРАВЛЕННЫЕ ОШИБКИ:
+          - Приложение больше не вылетает при входе
+          - Голосовое управление работает корректно
+          - Dead Man Switch (10 мин) работает
+          - Чат полностью функционален
+          - Сейсмо-анализатор: порог работает, кнопка остановки работает
+          - Навигатор: адрес→координаты и карта→координаты работают
+          - Карта заменена на нейтральную (без флагов)
+          - Оборудование и пульс: кнопки подключения работают
+          - Жучки: реальный Bluetooth сканер + компас + позиция
+          - Аудио: реальная запись, скачивание MP3 работает
+          - Кнопка назад работает корректно (не закрывает приложение)
+          - Виброотклик на все кнопки
+          - Push-уведомления настроены
           
           Требования:
           - Android 7.0+ (API 24)
-          - Разрешения: геолокация, микрофон, Bluetooth, уведомления
+          - Разрешения: геолокация, микрофон, Bluetooth, уведомления, вибрация
           
-          Подключение оборудования:
-          - ESP32-CAM: прошивка в папке esp-firmwares/camera.ino
-          - ESP8266/32 реле: прошивка в esp-firmwares/relay.ino
-          - ESP32 пульс: прошивка в esp-firmwares/pulse.ino
+          Подпись: самоподписанный сертификат (debug/release)
           EOF
       
       - name: Upload Release Info
         uses: actions/upload-artifact@v4
         with:
           name: Release-Info
-          path: release-info.txt
-          retention-days: 30
+          path: output/release-info.txt
+          retention-days: 90
