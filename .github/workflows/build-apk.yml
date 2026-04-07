@@ -19,13 +19,11 @@ jobs:
           node-version: 20
       
       - name: Setup Capacitor
-        working-directory: ghost-hub-v3.1
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
       
       - name: Prepare web files
-        working-directory: ghost-hub-v3.1
         run: |
           mkdir -p www
           cp index.html style.css script.js supabase.js service-worker.js manifest.json www/
@@ -34,7 +32,6 @@ jobs:
           ls -la www/
       
       - name: Inject environment variables
-        working-directory: ghost-hub-v3.1
         run: |
           cat > www/env.js << 'EOF'
           window.ENV = {
@@ -44,7 +41,6 @@ jobs:
           EOF
       
       - name: Create Capacitor config
-        working-directory: ghost-hub-v3.1
         run: |
           cat > capacitor.config.json << 'EOF'
           {
@@ -77,11 +73,9 @@ jobs:
           EOF
       
       - name: Add Android platform
-        working-directory: ghost-hub-v3.1
         run: npx cap add android
       
       - name: Fix Android variables
-        working-directory: ghost-hub-v3.1
         run: |
           cat > android/variables.gradle << 'EOF'
           ext {
@@ -103,7 +97,6 @@ jobs:
           EOF
       
       - name: Fix Kotlin dependencies
-        working-directory: ghost-hub-v3.1
         run: |
           cat >> android/build.gradle << 'EOF'
           
@@ -119,7 +112,6 @@ jobs:
           EOF
       
       - name: Setup permissions for Android
-        working-directory: ghost-hub-v3.1
         run: |
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
@@ -192,12 +184,11 @@ jobs:
           EOF
       
       - name: Generate app icons
-        working-directory: ghost-hub-v3.1
         run: |
           cd android/app/src/main/res
           mkdir -p mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi
           
-          ICON_SOURCE="${{ github.workspace }}/ghost-hub-v3.1/icon.png"
+          ICON_SOURCE="${{ github.workspace }}/icon.png"
           
           if [ -f "$ICON_SOURCE" ]; then
               echo "Using provided icon.png"
@@ -226,7 +217,6 @@ jobs:
         continue-on-error: true
       
       - name: Create splash screen drawable
-        working-directory: ghost-hub-v3.1
         run: |
           mkdir -p android/app/src/main/res/drawable
           
@@ -275,7 +265,6 @@ jobs:
           EOF
       
       - name: Create file_paths.xml
-        working-directory: ghost-hub-v3.1
         run: |
           mkdir -p android/app/src/main/res/xml
           
@@ -289,11 +278,9 @@ jobs:
           EOF
       
       - name: Sync Capacitor
-        working-directory: ghost-hub-v3.1
         run: npx cap sync android
       
       - name: Copy web assets to Android
-        working-directory: ghost-hub-v3.1
         run: npx cap copy android
       
       - name: Setup Java
@@ -303,7 +290,7 @@ jobs:
           distribution: 'temurin'
       
       - name: Build Debug APK
-        working-directory: ghost-hub-v3.1/android
+        working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
@@ -311,22 +298,21 @@ jobs:
       - name: Check APK and assets
         run: |
           echo "=== Checking APK ==="
-          ls -la ghost-hub-v3.1/android/app/build/outputs/apk/debug/
+          ls -la android/app/build/outputs/apk/debug/
           
           echo "=== Checking assets in APK ==="
-          unzip -l ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk | grep -E "(www|index|assets)" | head -20
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep -E "(www|index|assets)" | head -20
           
-          cp ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk ghost-hub-v3.1/Ghost-Hub-v3.1.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk Ghost-Hub-v3.1.apk
       
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Ghost-Hub-v3.1-APK
-          path: ghost-hub-v3.1/Ghost-Hub-v3.1.apk
+          path: Ghost-Hub-v3.1.apk
           retention-days: 30
       
       - name: Create Release Info
-        working-directory: ghost-hub-v3.1
         run: |
           cat > release-info.txt << 'EOF'
           GHOST-HUB v3.1 Build Info
@@ -362,5 +348,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Release-Info
-          path: ghost-hub-v3.1/release-info.txt
+          path: release-info.txt
           retention-days: 30
