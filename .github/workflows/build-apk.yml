@@ -301,45 +301,22 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
       
-      - name: Build Release APK
-        working-directory: ghost-hub-v3.1/android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
-        continue-on-error: true
-      
-      - name: Build Debug APK
-        if: failure()
+      - name: Build Debug APK (signed)
         working-directory: ghost-hub-v3.1/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
       
-      - name: Check and rename APK
+      - name: Check APK
         run: |
-          ls -la ghost-hub-v3.1/android/app/build/outputs/apk/ || echo "APK directory not found"
-          
-          if [ -d "ghost-hub-v3.1/android/app/build/outputs/apk/release" ]; then
-            ls -la ghost-hub-v3.1/android/app/build/outputs/apk/release/
-            if [ -f "ghost-hub-v3.1/android/app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-              mv ghost-hub-v3.1/android/app/build/outputs/apk/release/app-release-unsigned.apk ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1.apk
-              echo "APK_PATH=ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1.apk" >> $GITHUB_ENV
-            fi
-          fi
-          
-          if [ -d "ghost-hub-v3.1/android/app/build/outputs/apk/debug" ]; then
-            ls -la ghost-hub-v3.1/android/app/build/outputs/apk/debug/
-            if [ -f "ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk" ]; then
-              mv ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Debug.apk
-              echo "APK_PATH=ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Debug.apk" >> $GITHUB_ENV
-            fi
-          fi
+          ls -la ghost-hub-v3.1/android/app/build/outputs/apk/debug/
+          cp ghost-hub-v3.1/android/app/build/outputs/apk/debug/app-debug.apk ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Signed.apk
       
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Ghost-Hub-v3.1-APK
-          path: ghost-hub-v3.1/android/app/build/outputs/apk/*.apk
+          path: ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Signed.apk
           retention-days: 30
       
       - name: Create Release Info
