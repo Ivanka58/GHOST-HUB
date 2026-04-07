@@ -1,4 +1,5 @@
-name: Build Android APK for Ghost Hub v3.1
+
+workflow_content = '''name: Build Android APK for Ghost Hub v3.1
 
 on:
   push:
@@ -8,6 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ghost-hub-v3.1
     
     steps:
       - name: Checkout code
@@ -212,7 +217,7 @@ jobs:
           mkdir -p mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi
           
           # Проверяем наличие иконки в репозитории
-          ICON_SOURCE="${{ github.workspace }}/icon.png"
+          ICON_SOURCE="${{ github.workspace }}/ghost-hub-v3.1/icon.png"
           
           if [ -f "$ICON_SOURCE" ]; then
               echo "Using provided icon.png"
@@ -336,10 +341,10 @@ jobs:
           cd android/app/build/outputs/apk
           if [ -f release/app-release-unsigned.apk ]; then
               mv release/app-release-unsigned.apk Ghost-Hub-v3.1.apk
-              echo "APK_PATH=android/app/build/outputs/apk/Ghost-Hub-v3.1.apk" >> $GITHUB_ENV
+              echo "APK_PATH=ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1.apk" >> $GITHUB_ENV
           elif [ -f debug/app-debug.apk ]; then
               mv debug/app-debug.apk Ghost-Hub-v3.1-Debug.apk
-              echo "APK_PATH=android/app/build/outputs/apk/Ghost-Hub-v3.1-Debug.apk" >> $GITHUB_ENV
+              echo "APK_PATH=ghost-hub-v3.1/android/app/build/outputs/apk/Ghost-Hub-v3.1-Debug.apk" >> $GITHUB_ENV
           fi
       
       - name: Upload APK
@@ -387,5 +392,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Release-Info
-          path: release-info.txt
+          path: ghost-hub-v3.1/release-info.txt
           retention-days: 30
+'''
+
+print(workflow_content)
