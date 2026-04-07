@@ -17,7 +17,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         * {
@@ -48,7 +47,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Native Splash Screen (первый) -->
+    <!-- Native Splash Screen -->
     <div id="native-splash" class="native-splash">
         <div class="splash-logo">
             <div class="splash-box">▓▓▓▓▓▓▓▓▓▓</div>
@@ -68,8 +67,8 @@
     <div class="scanlines"></div>
     <div class="noise"></div>
     
-    <!-- Boot sequence (второй, наш) -->
-    <div id="boot-screen" class="boot-screen">
+    <!-- Boot sequence -->
+    <div id="boot-screen" class="boot-screen hidden">
         <div class="boot-content">
             <div class="boot-line">Initializing GHOST-HUB v3.1...</div>
             <div class="boot-line">Loading CERBER-AUDIO ENGINE...</div>
@@ -102,7 +101,7 @@
             <div class="voice-text">СЛУШАЮ...</div>
         </div>
 
-        <!-- Auth Screen (до входа) -->
+        <!-- Auth Screen -->
         <div id="auth-screen" class="auth-screen">
             <div class="auth-content">
                 <div class="auth-logo">GHOST-HUB</div>
@@ -137,7 +136,7 @@
             </div>
         </div>
 
-        <!-- Header (после входа) -->
+        <!-- Header -->
         <header id="app-header" class="header hidden">
             <div class="status-block">
                 <span id="status-indicator" class="status-indicator offline"></span>
@@ -153,7 +152,7 @@
             </div>
         </header>
 
-        <!-- Quick Actions Bar (после входа) -->
+        <!-- Quick Actions Bar -->
         <div id="quick-actions" class="quick-actions hidden">
             <button id="incident-btn" class="action-btn incident disabled" disabled>
                 <span class="btn-icon">!</span>
@@ -179,7 +178,7 @@
             <button id="mini-reset" class="mini-reset">Я В ПОРЯДКЕ</button>
         </div>
 
-        <!-- Mobile Navigation (после входа) -->
+        <!-- Mobile Navigation -->
         <nav id="mobile-nav" class="mobile-nav hidden">
             <button class="nav-btn active" data-view="map" disabled>
                 <span class="nav-icon">⌖</span>
@@ -222,7 +221,7 @@
         <!-- Main Content Area -->
         <main id="content-area" class="content-area hidden">
             
-            <!-- TEAM STATUS VIEW (бывшая карта) -->
+            <!-- TEAM STATUS VIEW -->
             <div id="map-view" class="view-section active">
                 <div class="team-header">
                     <h2 class="section-title">// ПОИСК КОМАНДЫ</h2>
@@ -343,7 +342,7 @@
                     </div>
                 </div>
 
-                <!-- Mode 3: Map to Coordinates (DRAGGABLE) -->
+                <!-- Mode 3: Map to Coordinates -->
                 <div id="mode-map-to-coords" class="navigator-mode-content hidden">
                     <div class="map-picker-section">
                         <div class="picker-instruction">
@@ -399,7 +398,7 @@
                 </div>
             </div>
 
-            <!-- BUG DETECTOR VIEW (РАДАР ЖУЧКОВ) -->
+            <!-- BUG DETECTOR VIEW -->
             <div id="radar-view" class="view-section">
                 <div class="radar-header">
                     <h2 class="section-title">// BUG DETECTOR</h2>
@@ -422,6 +421,12 @@
                     <canvas id="radar-canvas"></canvas>
                     <div class="radar-center">⌖</div>
                     <div class="radar-sweep"></div>
+                    <div class="radar-arrow" id="radar-arrow">▲</div>
+                </div>
+
+                <div class="radar-info">
+                    <div class="radar-heading">КУРС: <span id="heading-value">0°</span></div>
+                    <div class="radar-position">POS: <span id="position-value">--</span></div>
                 </div>
 
                 <div class="radar-alert hidden" id="radar-alert">
@@ -434,7 +439,7 @@
                 </div>
             </div>
 
-            <!-- TREMOR VIEW (СЕЙСМО — ТОЛЬКО ПО КНОПКЕ) -->
+            <!-- TREMOR VIEW -->
             <div id="tremor-view" class="view-section">
                 <div class="tremor-header">
                     <h2 class="section-title">// ACCEL-TREMOR</h2>
@@ -458,6 +463,7 @@
                     <div class="sensitivity-control">
                         <span>Чувствительность:</span>
                         <input type="range" id="sensitivity" min="1" max="10" value="5">
+                        <span id="sensitivity-value">5</span>
                     </div>
                 </div>
 
@@ -489,7 +495,7 @@
                 </div>
             </div>
 
-            <!-- AUDIO VIEW (ФОНОВЫЙ РЕКОРДЕР) -->
+            <!-- AUDIO VIEW -->
             <div id="audio-view" class="view-section">
                 <div class="audio-header">
                     <h2 class="section-title">// CERBER-AUDIO</h2>
@@ -526,7 +532,7 @@
                 </div>
             </div>
 
-            <!-- LOGS VIEW (ЛОГИ С АУДИО) -->
+            <!-- LOGS VIEW -->
             <div id="logs-view" class="view-section">
                 <div class="logs-header">
                     <h2 class="section-title">// ЛОГИ СОБЫТИЙ</h2>
@@ -538,7 +544,7 @@
                 </div>
             </div>
 
-            <!-- EQUIPMENT VIEW (ОБОРУДОВАНИЕ) -->
+            <!-- EQUIPMENT VIEW -->
             <div id="equipment-view" class="view-section">
                 <div class="equipment-header">
                     <h2 class="section-title">// ОБОРУДОВАНИЕ</h2>
@@ -576,7 +582,7 @@
                 </div>
             </div>
 
-            <!-- PULSE VIEW (ПУЛЬС) -->
+            <!-- PULSE VIEW -->
             <div id="pulse-view" class="view-section">
                 <div class="pulse-header">
                     <h2 class="section-title">// ПУЛЬС МОНИТОР</h2>
@@ -598,7 +604,7 @@
                 </div>
             </div>
 
-            <!-- CHAT VIEW (P2P ЧАТ) -->
+            <!-- CHAT VIEW -->
             <div id="chat-view" class="view-section">
                 <div class="chat-header">
                     <h2 class="section-title">// QUILL-CHAT</h2>
@@ -769,8 +775,52 @@
         </div>
     </div>
 
+    <!-- Record Menu Modal -->
+    <div id="record-menu-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">◈ ДЕЙСТВИЯ С ЗАПИСЬЮ</span>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="record-menu-actions">
+                    <button id="download-record-btn" class="control-btn start">
+                        [ СКАЧАТЬ MP3 ]
+                    </button>
+                    <button id="delete-record-btn" class="control-btn stop">
+                        [ УДАЛИТЬ ]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Menu Modal -->
+    <div id="log-menu-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">◈ ДЕЙСТВИЯ С ЛОГОМ</span>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="log-menu-actions">
+                    <button id="download-log-btn" class="control-btn start">
+                        [ СКАЧАТЬ АУДИО ]
+                    </button>
+                    <button id="delete-log-btn" class="control-btn stop">
+                        [ УДАЛИТЬ ЛОГ ]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
