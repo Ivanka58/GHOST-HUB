@@ -8,46 +8,42 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: ghost-hub-v3.1
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
+      
       - name: Setup Capacitor
+        working-directory: ghost-hub-v3.1
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-
+      
       - name: Prepare web files
+        working-directory: ghost-hub-v3.1
         run: |
           mkdir -p www
-          # Копируем все основные файлы
           cp index.html style.css script.js supabase.js service-worker.js manifest.json www/
-          # Создаём папку для иконок
           mkdir -p www/icons
-          # Копируем иконку если есть
           cp icon.png www/ 2>/dev/null || echo "Icon will be generated"
-
+      
       - name: Inject environment variables
+        working-directory: ghost-hub-v3.1
         run: |
-          # Создаём env.js с переменными из GitHub Secrets
           cat > www/env.js << 'EOF'
           window.ENV = {
             DATABASE_URL: '${{ secrets.DATABASE_URL }}',
             SUPABASE_ANON_KEY: '${{ secrets.SUPABASE_ANON_KEY }}'
           };
           EOF
-
+      
       - name: Create Capacitor config
+        working-directory: ghost-hub-v3.1
         run: |
           cat > capacitor.config.json << 'EOF'
           {
@@ -75,11 +71,13 @@ jobs:
             }
           }
           EOF
-
+      
       - name: Add Android platform
+        working-directory: ghost-hub-v3.1
         run: npx cap add android
-
+      
       - name: Fix Android variables
+        working-directory: ghost-hub-v3.1
         run: |
           cat > android/variables.gradle << 'EOF'
           ext {
@@ -99,11 +97,12 @@ jobs:
               cordovaAndroidVersion = '10.1.1'
           }
           EOF
-
+      
       - name: Fix Kotlin dependencies
+        working-directory: ghost-hub-v3.1
         run: |
           cat >> android/build.gradle << 'EOF'
-
+          
           allprojects {
               configurations.all {
                   resolutionStrategy {
@@ -114,13 +113,14 @@ jobs:
               }
           }
           EOF
-
+      
       - name: Setup permissions for Android
+        working-directory: ghost-hub-v3.1
         run: |
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
+              
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -139,7 +139,7 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
+              
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
@@ -148,7 +148,7 @@ jobs:
                   android:supportsRtl="true"
                   android:theme="@style/AppTheme"
                   android:usesCleartextTraffic="true">
-
+                  
                   <activity
                       android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
                       android:name="com.ghost.hub.MainActivity"
@@ -156,26 +156,26 @@ jobs:
                       android:theme="@style/AppTheme.NoActionBarLaunch"
                       android:launchMode="singleTask"
                       android:exported="true">
-
+                      
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
-
+                      
                       <intent-filter>
                           <action android:name="android.intent.action.VIEW" />
                           <category android:name="android.intent.category.DEFAULT" />
                           <category android:name="android.intent.category.BROWSABLE" />
                           <data android:scheme="ghosthub" />
                       </intent-filter>
-
+                      
                   </activity>
-
+                  
                   <service
                       android:name="com.google.android.gms.metadata.ModuleDependencies"
                       android:enabled="false"
                       android:exported="false" />
-
+                  
                   <provider
                       android:name="androidx.core.content.FileProvider"
                       android:authorities="${applicationId}.fileprovider"
@@ -185,34 +185,35 @@ jobs:
                           android:name="android.support.FILE_PROVIDER_PATHS"
                           android:resource="@xml/file_paths" />
                   </provider>
-
+                  
               </application>
           </manifest>
           EOF
-
+      
       - name: Generate app icons
+        working-directory: ghost-hub-v3.1
         run: |
           cd android/app/src/main/res
           mkdir -p mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi
-
+          
           ICON_SOURCE="${{ github.workspace }}/ghost-hub-v3.1/icon.png"
-
+          
           if [ -f "$ICON_SOURCE" ]; then
               echo "Using provided icon.png"
               sudo apt-get update && sudo apt-get install -y imagemagick
-
+              
               convert "$ICON_SOURCE" -resize 72x72 mipmap-hdpi/ic_launcher.png
               convert "$ICON_SOURCE" -resize 48x48 mipmap-mdpi/ic_launcher.png
               convert "$ICON_SOURCE" -resize 96x96 mipmap-xhdpi/ic_launcher.png
               convert "$ICON_SOURCE" -resize 144x144 mipmap-xxhdpi/ic_launcher.png
               convert "$ICON_SOURCE" -resize 192x192 mipmap-xxxhdpi/ic_launcher.png
-
+              
               cp mipmap-hdpi/ic_launcher.png mipmap-hdpi/ic_launcher_foreground.png
               cp mipmap-mdpi/ic_launcher.png mipmap-mdpi/ic_launcher_foreground.png
               cp mipmap-xhdpi/ic_launcher.png mipmap-xhdpi/ic_launcher_foreground.png
               cp mipmap-xxhdpi/ic_launcher.png mipmap-xxhdpi/ic_launcher_foreground.png
               cp mipmap-xxxhdpi/ic_launcher.png mipmap-xxxhdpi/ic_launcher_foreground.png
-
+              
               convert "$ICON_SOURCE" -resize 72x72 mipmap-hdpi/ic_launcher_round.png
               convert "$ICON_SOURCE" -resize 48x48 mipmap-mdpi/ic_launcher_round.png
               convert "$ICON_SOURCE" -resize 96x96 mipmap-xhdpi/ic_launcher_round.png
@@ -222,11 +223,12 @@ jobs:
               echo "No icon.png found, using default Android icon"
           fi
         continue-on-error: true
-
+      
       - name: Create splash screen drawable
+        working-directory: ghost-hub-v3.1
         run: |
           mkdir -p android/app/src/main/res/drawable
-
+          
           cat > android/app/src/main/res/drawable/splash.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -237,4 +239,135 @@ jobs:
                   android:gravity="center">
                   <bitmap android:src="@mipmap/ic_launcher_foreground" />
               </item>
-          </la<response clipped><NOTE>Result is longer than **10000 characters**, will be **truncated**.</NOTE>
+          </layer-list>
+          EOF
+          
+          mkdir -p android/app/src/main/res/values
+          
+          cat > android/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="splash_background">#0A0A0A</color>
+              <color name="colorPrimary">#0A0A0A</color>
+              <color name="colorPrimaryDark">#0A0A0A</color>
+              <color name="colorAccent">#FF8C00</color>
+          </resources>
+          EOF
+          
+          cat > android/app/src/main/res/values/styles.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+                  <item name="colorPrimary">@color/colorPrimary</item>
+                  <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+                  <item name="colorAccent">@color/colorAccent</item>
+              </style>
+              
+              <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">
+                  <item name="windowActionBar">false</item>
+                  <item name="windowNoTitle">true</item>
+                  <item name="android:background">@null</item>
+              </style>
+              
+              <style name="AppTheme.NoActionBarLaunch" parent="AppTheme.NoActionBar">
+                  <item name="android:windowBackground">@drawable/splash</item>
+              </style>
+          </resources>
+          EOF
+      
+      - name: Create file_paths.xml
+        working-directory: ghost-hub-v3.1
+        run: |
+          mkdir -p android/app/src/main/res/xml
+          
+          cat > android/app/src/main/res/xml/file_paths.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths xmlns:android="http://schemas.android.com/apk/res/android">
+              <external-files-path name="my_images" path="Pictures" />
+              <cache-path name="cache" path="/" />
+              <files-path name="files" path="/" />
+          </paths>
+          EOF
+      
+      - name: Sync project
+        working-directory: ghost-hub-v3.1
+        run: npx cap sync android
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      
+      - name: Build Release APK
+        working-directory: ghost-hub-v3.1/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+        continue-on-error: true
+      
+      - name: Build Debug APK (fallback)
+        if: failure()
+        working-directory: ghost-hub-v3.1/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      
+      - name: Rename and move APK
+        run: |
+          cd ghost-hub-v3.1/android/app/build/outputs/apk
+          if [ -f release/app-release-unsigned.apk ]; then
+              mv release/app-release-unsigned.apk Ghost-Hub-v3.1.apk
+              echo "APK created: Ghost-Hub-v3.1.apk"
+          elif [ -f debug/app-debug.apk ]; then
+              mv debug/app-debug.apk Ghost-Hub-v3.1-Debug.apk
+              echo "APK created: Ghost-Hub-v3.1-Debug.apk"
+          fi
+          ls -la
+      
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ghost-Hub-v3.1-APK
+          path: ghost-hub-v3.1/android/app/build/outputs/apk/*.apk
+          retention-days: 30
+      
+      - name: Create Release Info
+        working-directory: ghost-hub-v3.1
+        run: |
+          cat > release-info.txt << 'EOF'
+          GHOST-HUB v3.1 Build Info
+          =========================
+          
+          Дата сборки: ${{ github.run_date }}
+          Коммит: ${{ github.sha }}
+          
+          Функции:
+          - P2P чат без интернета
+          - Навигатор с картами (нейтральный провайдер)
+          - Детектор жучков (Bluetooth/WiFi сканер)
+          - Сейсмо-анализатор (акселерометр)
+          - Фоновый аудиорекордер
+          - Логи событий с аудио
+          - Управление оборудованием (ESP32)
+          - Мониторинг пульса (BLE)
+          - Голосовое управление
+          - Dead Man Switch (10 мин)
+          - Offline-first PWA
+          
+          Требования:
+          - Android 7.0+ (API 24)
+          - Разрешения: геолокация, микрофон, Bluetooth, уведомления
+          
+          Подключение оборудования:
+          - ESP32-CAM: прошивка в папке esp-firmwares/camera.ino
+          - ESP8266/32 реле: прошивка в esp-firmwares/relay.ino
+          - ESP32 пульс: прошивка в esp-firmwares/pulse.ino
+          EOF
+      
+      - name: Upload Release Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: Release-Info
+          path: ghost-hub-v3.1/release-info.txt
+          retention-days: 30
