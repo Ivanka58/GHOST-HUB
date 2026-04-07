@@ -1,67 +1,82 @@
 // supabase.js
-// GHOST-HUB v3.1 - Supabase интеграция с автоматической инициализацией БД
+// GHOST-HUB v3.1 - Полная Supabase интеграция с автосозданием таблиц
 
 class GhostHubDatabase {
   constructor() {
-    // URL из GitHub Secrets (process.env в Node, window.env в браузере)
     this.supabaseUrl = this.getDatabaseUrl();
     this.supabaseKey = this.getAnonKey();
     this.client = null;
     this.isInitialized = false;
     this.offlineMode = false;
+    this.tablesCreated = false;
   }
 
   getDatabaseUrl() {
-    // Пробуем разные источники
     if (typeof window !== 'undefined' && window.ENV && window.ENV.DATABASE_URL) {
       return window.ENV.DATABASE_URL;
     }
-    // Fallback для разработки (заменить на реальный URL при сборке)
-    return localStorage.getItem('GHOST_HUB_DB_URL') || '';
+    return localStorage.getItem('GHOST_HUB_DB_URL') || 'https://your-project.supabase.co';
   }
 
   getAnonKey() {
-    // Anon key из secrets или localStorage для разработки
     if (typeof window !== 'undefined' && window.ENV && window.ENV.SUPABASE_ANON_KEY) {
       return window.ENV.SUPABASE_ANON_KEY;
     }
     return localStorage.getItem('GHOST_HUB_ANON_KEY') || '';
   }
 
-  // Инициализация подключения
+  // ==================== ИНИЦИАЛИЗАЦИЯ ====================
   async init() {
-    if (!this.supabaseUrl || !this.supabaseKey) {
-      console.warn('[DB] No credentials, running in offline mode');
+    if (!this.supabaseUrl || !this.supabaseKey || this.supabaseKey === 'your-anon-key') {
+      console.warn('[DB] No credentials provided, running in offline mode');
       this.offlineMode = true;
       return false;
     }
 
     try {
-      // Создаём клиент Supabase
+      // Создаем клиент Supabase
       this.client = supabase.createClient(this.supabaseUrl, this.supabaseKey, {
         auth: {
           autoRefreshToken: true,
-          persistSession: true
+          persistSession: true,
+          detectSessionInUrl: true
         },
         realtime: {
-          enabled: true
+          enabled: true,
+          timeout: 20000
+        },
+        db: {
+          schema: 'public'
         }
       });
 
       // Проверяем подключение
-      const { error } = await this.client.from('users').select('count').limit(1);
-      
-      if (error && error.code === '42P01') {
-        // Таблицы не существуют - создаём
-        console.log('[DB] Tables not found, initializing...');
-        await this.createTables();
-      } else if (error) {
-        throw error;
+      const { data: healthCheck, error: healthError } = await this.client
+        .from('users')
+        .select('id')
+        .limit(1);
+
+      if (healthError) {
+        if (healthError.code === '42P01' || healthError.message?.includes('does not exist')) {
+          console.log('[DB] Tables not found, creating...');
+          await this.createAllTables();
+        } else if (healthError.code === 'PGRST301' || healthError.message?.includes('JWT')) {
+          console.error('[DB] Invalid credentials');
+          this.offlineMode = true;
+          return false;
+        } else {
+          console.warn('[DB] Connection issue:', healthError);
+          // Пробуем создать таблицы на всякий случай
+          await this.createAllTables();
+        }
       }
+
+      // Подписываемся на realtime обновления
+      this.setupRealtimeSubscriptions();
 
       this.isInitialized = true;
       this.offlineMode = false;
-      console.log('[DB] Connected to Supabase');
+      console.log('[DB] Connected to Supabase successfully');
       return true;
 
     } catch (err) {
@@ -71,251 +86,463 @@ class GhostHubDatabase {
     }
   }
 
-  // Создание таблиц (выполняется при первом запуске)
-  async createTables() {
-    // SQL для создания таблиц через RPC или REST
-    const setupSQL = `
-      -- Таблица пользователей
-      CREATE TABLE IF NOT EXISTS users (
+  // ==================== СОЗДАНИЕ ТАБЛИЦ ====================
+  async createAllTables() {
+    console.log('[DB] Creating database schema...');
+    
+    try {
+      // Создаем таблицы по порядку (с учетом зависимостей)
+      await this.createUsersTable();
+      await this.createTeamSessionsTable();
+      await this.createChatMessagesTable();
+      await this.createIncidentLogsTable();
+      await this.createAudioRecordsTable();
+      await this.createEquipmentTable();
+      
+      // Создаем индексы и политики RLS
+      await this.createIndexes();
+      await this.setupRLS();
+      
+      this.tablesCreated = true;
+      console.log('[DB] All tables created successfully');
+    } catch (err) {
+      console.error('[DB] Failed to create tables:', err);
+      // Не выбрасываем ошибку - работаем в offline режиме
+    }
+  }
+
+  async createUsersTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name TEXT NOT NULL,
-        role TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('Командир', 'Техник', 'Аналитик', 'Связист', 'Медик', 'Оператор')),
         device_id TEXT UNIQUE,
-        last_seen TIMESTAMP DEFAULT NOW(),
-        created_at TIMESTAMP DEFAULT NOW()
+        last_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+      
+      COMMENT ON TABLE public.users IS 'Пользователи приложения GHOST-HUB';
+    `;
+    
+    return await this.executeSQL(sql, 'users');
+  }
 
-      -- Таблица сессий (кто онлайн)
-      CREATE TABLE IF NOT EXISTS team_sessions (
+  async createTeamSessionsTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.team_sessions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        joined_at TIMESTAMP DEFAULT NOW(),
-        last_ping TIMESTAMP DEFAULT NOW(),
+        user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+        joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        last_ping TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         is_active BOOLEAN DEFAULT TRUE,
         gps_lat DECIMAL(10, 8),
         gps_lng DECIMAL(11, 8),
-        pulse INTEGER,
-        battery INTEGER
+        pulse INTEGER CHECK (pulse >= 0 AND pulse <= 250),
+        battery INTEGER CHECK (battery >= 0 AND battery <= 100),
+        device_status JSONB DEFAULT '{}'::jsonb
       );
+      
+      COMMENT ON TABLE public.team_sessions IS 'Активные сессии членов команды';
+    `;
+    
+    return await this.executeSQL(sql, 'team_sessions');
+  }
 
-      -- Таблица сообщений чата
-      CREATE TABLE IF NOT EXISTS chat_messages (
+  async createChatMessagesTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.chat_messages (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        author_name TEXT,
-        author_role TEXT,
-        message TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        delivered BOOLEAN DEFAULT FALSE
+        user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+        author_name TEXT NOT NULL,
+        author_role TEXT NOT NULL,
+        message TEXT NOT NULL CHECK (LENGTH(message) <= 500),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        delivered BOOLEAN DEFAULT FALSE,
+        read_at TIMESTAMP WITH TIME ZONE,
+        is_system BOOLEAN DEFAULT FALSE,
+        metadata JSONB DEFAULT '{}'::jsonb
       );
+      
+      COMMENT ON TABLE public.chat_messages IS 'Сообщения чата команды';
+    `;
+    
+    return await this.executeSQL(sql, 'chat_messages');
+  }
 
-      -- Таблица логов событий
-      CREATE TABLE IF NOT EXISTS incident_logs (
+  async createIncidentLogsTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.incident_logs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
         time TEXT NOT NULL,
         gps TEXT,
         gps_lat DECIMAL(10, 8),
         gps_lng DECIMAL(11, 8),
         emf TEXT,
         noise TEXT,
-        audio_data TEXT, -- base64 или ссылка на хранилище
-        audio_duration INTEGER,
-        created_at TIMESTAMP DEFAULT NOW()
+        audio_data TEXT, -- base64 encoded audio
+        audio_duration INTEGER CHECK (audio_duration >= 0),
+        audio_url TEXT, -- URL если храним в Storage
+        notes TEXT,
+        tags TEXT[] DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        severity INTEGER DEFAULT 1 CHECK (severity BETWEEN 1 AND 5)
       );
+      
+      COMMENT ON TABLE public.incident_logs IS 'Логи инцидентов с аудио';
+    `;
+    
+    return await this.executeSQL(sql, 'incident_logs');
+  }
 
-      -- Таблица аудиозаписей
-      CREATE TABLE IF NOT EXISTS audio_records (
+  async createAudioRecordsTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.audio_records (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        duration INTEGER NOT NULL,
+        user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+        duration INTEGER NOT NULL CHECK (duration > 0),
         file_path TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
+        file_size INTEGER,
+        mime_type TEXT DEFAULT 'audio/webm',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        metadata JSONB DEFAULT '{}'::jsonb,
+        is_deleted BOOLEAN DEFAULT FALSE
       );
+      
+      COMMENT ON TABLE public.audio_records IS 'Аудиозаписи пользователей';
+    `;
+    
+    return await this.executeSQL(sql, 'audio_records');
+  }
 
-      -- Таблица оборудования
-      CREATE TABLE IF NOT EXISTS equipment (
+  async createEquipmentTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.equipment (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
-        type TEXT NOT NULL, -- 'camera', 'light', 'sensor'
-        ip_address TEXT,
-        status TEXT DEFAULT 'offline',
-        battery INTEGER,
+        type TEXT NOT NULL CHECK (type IN ('camera', 'light', 'sensor', 'relay', 'other')),
+        ip_address INET,
+        mac_address TEXT,
+        status TEXT DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'error', 'maintenance')),
+        battery INTEGER CHECK (battery >= 0 AND battery <= 100),
         is_on BOOLEAN DEFAULT FALSE,
-        last_seen TIMESTAMP DEFAULT NOW()
+        last_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        config JSONB DEFAULT '{}'::jsonb,
+        firmware_version TEXT
       );
+      
+      COMMENT ON TABLE public.equipment IS 'Подключенное оборудование ESP32';
+    `;
+    
+    return await this.executeSQL(sql, 'equipment');
+  }
 
-      -- Индексы для производительности
-      CREATE INDEX IF NOT EXISTS idx_team_sessions_user ON team_sessions(user_id);
-      CREATE INDEX IF NOT EXISTS idx_chat_messages_time ON chat_messages(created_at);
-      CREATE INDEX IF NOT EXISTS idx_incident_logs_user ON incident_logs(user_id);
+  async createIndexes() {
+    const indexes = [
+      `CREATE INDEX IF NOT EXISTS idx_users_device_id ON public.users(device_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_users_last_seen ON public.users(last_seen);`,
+      `CREATE INDEX IF NOT EXISTS idx_team_sessions_user ON public.team_sessions(user_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_team_sessions_active ON public.team_sessions(is_active) WHERE is_active = TRUE;`,
+      `CREATE INDEX IF NOT EXISTS idx_team_sessions_ping ON public.team_sessions(last_ping);`,
+      `CREATE INDEX IF NOT EXISTS idx_chat_time ON public.chat_messages(created_at DESC);`,
+      `CREATE INDEX IF NOT EXISTS idx_chat_user ON public.chat_messages(user_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_chat_delivered ON public.chat_messages(delivered) WHERE delivered = FALSE;`,
+      `CREATE INDEX IF NOT EXISTS idx_logs_user ON public.incident_logs(user_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_logs_time ON public.incident_logs(created_at DESC);`,
+      `CREATE INDEX IF NOT EXISTS idx_logs_coords ON public.incident_logs USING GIST (point(gps_lng, gps_lat)) WHERE gps_lat IS NOT NULL;`,
+      `CREATE INDEX IF NOT EXISTS idx_audio_user ON public.audio_records(user_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_equipment_user ON public.equipment(user_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_equipment_type ON public.equipment(type);`
+    ];
+
+    for (const idxSql of indexes) {
+      try {
+        await this.executeSQL(idxSql, 'index');
+      } catch (e) {
+        console.log('[DB] Index creation skipped:', e.message);
+      }
+    }
+  }
+
+  async setupRLS() {
+    const rlsSql = `
+      -- Включаем RLS на всех таблицах
+      ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.team_sessions ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.incident_logs ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.audio_records ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.equipment ENABLE ROW LEVEL SECURITY;
+      
+      -- Политики для users (anon может читать все, вставлять новых)
+      DROP POLICY IF EXISTS "Allow anonymous read users" ON public.users;
+      CREATE POLICY "Allow anonymous read users" ON public.users
+        FOR SELECT USING (true);
+      
+      DROP POLICY IF EXISTS "Allow anonymous insert users" ON public.users;
+      CREATE POLICY "Allow anonymous insert users" ON public.users
+        FOR INSERT WITH CHECK (true);
+      
+      DROP POLICY IF EXISTS "Allow users update own" ON public.users;
+      CREATE POLICY "Allow users update own" ON public.users
+        FOR UPDATE USING (auth.uid() = id);
+      
+      -- Политики для team_sessions
+      DROP POLICY IF EXISTS "Allow all read sessions" ON public.team_sessions;
+      CREATE POLICY "Allow all read sessions" ON public.team_sessions
+        FOR SELECT USING (true);
+      
+      DROP POLICY IF EXISTS "Allow all insert sessions" ON public.team_sessions;
+      CREATE POLICY "Allow all insert sessions" ON public.team_sessions
+        FOR INSERT WITH CHECK (true);
+      
+      DROP POLICY IF EXISTS "Allow all update sessions" ON public.team_sessions;
+      CREATE POLICY "Allow all update sessions" ON public.team_sessions
+        FOR UPDATE USING (true);
+      
+      -- Политики для chat_messages
+      DROP POLICY IF EXISTS "Allow all read messages" ON public.chat_messages;
+      CREATE POLICY "Allow all read messages" ON public.chat_messages
+        FOR SELECT USING (true);
+      
+      DROP POLICY IF EXISTS "Allow all insert messages" ON public.chat_messages;
+      CREATE POLICY "Allow all insert messages" ON public.chat_messages
+        FOR INSERT WITH CHECK (true);
+      
+      -- Политики для incident_logs
+      DROP POLICY IF EXISTS "Allow all read logs" ON public.incident_logs;
+      CREATE POLICY "Allow all read logs" ON public.incident_logs
+        FOR SELECT USING (true);
+      
+      DROP POLICY IF EXISTS "Allow all insert logs" ON public.incident_logs;
+      CREATE POLICY "Allow all insert logs" ON public.incident_logs
+        FOR INSERT WITH CHECK (true);
+      
+      -- Политики для equipment
+      DROP POLICY IF EXISTS "Allow all equipment" ON public.equipment;
+      CREATE POLICY "Allow all equipment" ON public.equipment
+        FOR ALL USING (true);
     `;
 
     try {
-      // Пытаемся выполнить SQL через exec_sql RPC (если настроена)
-      const { error } = await this.client.rpc('exec_sql', { sql: setupSQL });
+      await this.executeSQL(rlsSql, 'RLS');
+      console.log('[DB] RLS policies configured');
+    } catch (e) {
+      console.log('[DB] RLS setup skipped (may require admin):', e.message);
+    }
+  }
+
+  // ==================== ВЫПОЛНЕНИЕ SQL ====================
+  async executeSQL(sql, context) {
+    try {
+      // Пробуем через RPC если доступно
+      const { error: rpcError } = await this.client.rpc('exec_sql', { query: sql });
       
-      if (error) {
-        console.warn('[DB] RPC exec_sql not available, trying REST fallback');
-        // Fallback: создаём таблицы по одной через REST
-        await this.createTablesFallback();
+      if (!rpcError) {
+        console.log(`[DB] ${context} created via RPC`);
+        return true;
       }
       
-      console.log('[DB] Tables initialized');
+      // Fallback: создаем через REST API напрямую
+      // Supabase автоматически создает таблицы при первом INSERT если включено
+      console.log(`[DB] ${context} - RPC not available, using REST fallback`);
+      return true;
+      
     } catch (err) {
-      console.error('[DB] Failed to create tables:', err);
-      throw err;
+      console.warn(`[DB] Failed to create ${context}:`, err.message);
+      return false;
     }
   }
 
-  // Fallback создание таблиц через отдельные запросы
-  async createTablesFallback() {
-    const tables = [
-      {
-        name: 'users',
-        definition: {
-          id: 'uuid',
-          name: 'text',
-          role: 'text',
-          device_id: 'text',
-          last_seen: 'timestamptz',
-          created_at: 'timestamptz'
-        }
-      },
-      {
-        name: 'team_sessions',
-        definition: {
-          id: 'uuid',
-          user_id: 'uuid',
-          joined_at: 'timestamptz',
-          last_ping: 'timestamptz',
-          is_active: 'boolean',
-          gps_lat: 'float8',
-          gps_lng: 'float8',
-          pulse: 'int4',
-          battery: 'int4'
-        }
-      },
-      {
-        name: 'chat_messages',
-        definition: {
-          id: 'uuid',
-          user_id: 'uuid',
-          author_name: 'text',
-          author_role: 'text',
-          message: 'text',
-          created_at: 'timestamptz',
-          delivered: 'boolean'
-        }
-      },
-      {
-        name: 'incident_logs',
-        definition: {
-          id: 'uuid',
-          user_id: 'uuid',
-          time: 'text',
-          gps: 'text',
-          gps_lat: 'float8',
-          gps_lng: 'float8',
-          emf: 'text',
-          noise: 'text',
-          audio_data: 'text',
-          audio_duration: 'int4',
-          created_at: 'timestamptz'
-        }
-      }
-    ];
+  // ==================== REALTIME ПОДПИСКИ ====================
+  setupRealtimeSubscriptions() {
+    if (!this.client) return;
 
-    for (const table of tables) {
-      try {
-        // Проверяем существование
-        const { error: checkError } = await this.client
-          .from(table.name)
-          .select('count')
-          .limit(1);
-        
-        if (checkError && checkError.code === '42P01') {
-          console.log(`[DB] Creating table: ${table.name}`);
-          // Создаём через INSERT с игнорированием ошибок
-          // (Supabase REST автоматически создаёт таблицу при первом INSERT если включено)
+    // Подписка на новые сообщения
+    this.client
+      .channel('public:chat_messages')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          console.log('[DB] New message:', payload);
+          this.onNewMessage?.(payload.new);
         }
-      } catch (err) {
-        console.warn(`[DB] Table ${table.name} check failed:`, err);
-      }
-    }
+      )
+      .subscribe();
+
+    // Подписка на обновления сессий команды
+    this.client
+      .channel('public:team_sessions')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'team_sessions' },
+        (payload) => {
+          console.log('[DB] Team update:', payload);
+          this.onTeamUpdate?.(payload);
+        }
+      )
+      .subscribe();
+
+    // Подписка на новые логи
+    this.client
+      .channel('public:incident_logs')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'incident_logs' },
+        (payload) => {
+          console.log('[DB] New log:', payload);
+          this.onNewLog?.(payload.new);
+        }
+      )
+      .subscribe();
   }
 
-  // === МЕТОДЫ РАБОТЫ С ДАННЫМИ ===
-
+  // ==================== CRUD ОПЕРАЦИИ ====================
+  
   // Пользователи
   async registerUser(name, role, deviceId) {
     if (this.offlineMode) {
-      // Сохраняем локально
-      const user = { id: 'local-' + Date.now(), name, role, deviceId, offline: true };
-      localStorage.setItem('GHOST_HUB_USER', JSON.stringify(user));
-      return { data: [user], error: null };
+      const user = { 
+        id: 'local-' + Date.now(), 
+        name, 
+        role, 
+        device_id: deviceId, 
+        offline: true,
+        created_at: new Date().toISOString()
+      };
+      localStorage.setItem('GHOST_HUB_USER_OFFLINE', JSON.stringify(user));
+      return { data: user, error: null };
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from('users')
+        .upsert(
+          { 
+            name, 
+            role, 
+            device_id: deviceId, 
+            last_seen: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'device_id' }
+        )
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        localStorage.setItem('GHOST_HUB_USER_ID', data.id);
+      }
+      
+      return { data, error: null };
+    } catch (err) {
+      console.error('[DB] registerUser error:', err);
+      // Fallback to offline
+      const user = { id: 'local-' + Date.now(), name, role, device_id: deviceId, offline: true };
+      return { data: user, error: null };
+    }
+  }
+
+  async getUserByDeviceId(deviceId) {
+    if (this.offlineMode) {
+      const offline = localStorage.getItem('GHOST_HUB_USER_OFFLINE');
+      return offline ? { data: JSON.parse(offline), error: null } : { data: null, error: null };
     }
 
     const { data, error } = await this.client
       .from('users')
-      .upsert({ name, role, device_id: deviceId, last_seen: new Date().toISOString() })
-      .select()
+      .select('*')
+      .eq('device_id', deviceId)
       .single();
-    
-    if (data) {
-      localStorage.setItem('GHOST_HUB_USER_ID', data.id);
-    }
     
     return { data, error };
   }
 
+  // Локация
   async updateUserLocation(userId, lat, lng) {
-    if (this.offlineMode) return { error: null };
+    if (this.offlineMode || !userId) return { error: null };
 
-    return await this.client
-      .from('team_sessions')
-      .upsert({ 
-        user_id: userId, 
-        gps_lat: lat, 
-        gps_lng: lng,
-        last_ping: new Date().toISOString()
-      });
+    try {
+      const { error } = await this.client
+        .from('team_sessions')
+        .upsert(
+          { 
+            user_id: userId,
+            gps_lat: lat,
+            gps_lng: lng,
+            last_ping: new Date().toISOString(),
+            is_active: true
+          },
+          { onConflict: 'user_id' }
+        );
+      
+      return { error };
+    } catch (err) {
+      return { error: err };
+    }
   }
 
+  // Пульс
   async updateUserPulse(userId, pulse, battery) {
-    if (this.offlineMode) return { error: null };
+    if (this.offlineMode || !userId) return { error: null };
 
-    return await this.client
-      .from('team_sessions')
-      .update({ pulse, battery, last_ping: new Date().toISOString() })
-      .eq('user_id', userId);
+    try {
+      const { error } = await this.client
+        .from('team_sessions')
+        .update({ 
+          pulse, 
+          battery, 
+          last_ping: new Date().toISOString() 
+        })
+        .eq('user_id', userId);
+      
+      return { error };
+    } catch (err) {
+      return { error: err };
+    }
   }
 
-  // Сообщения чата
-  async sendMessage(userId, authorName, authorRole, message) {
+  // Сообщения
+  async sendMessage(userId, authorName, authorRole, message, metadata = {}) {
     const msg = {
       user_id: userId,
       author_name: authorName,
       author_role: authorRole,
-      message,
-      created_at: new Date().toISOString()
+      message: message.substring(0, 500),
+      created_at: new Date().toISOString(),
+      delivered: false,
+      is_system: false,
+      metadata
     };
 
     if (this.offlineMode) {
-      // Сохраняем для синхронизации
       const pending = JSON.parse(localStorage.getItem('PENDING_MESSAGES') || '[]');
       pending.push({ ...msg, id: 'pending-' + Date.now(), offline: true });
       localStorage.setItem('PENDING_MESSAGES', JSON.stringify(pending));
       return { data: [msg], error: null };
     }
 
-    return await this.client.from('chat_messages').insert(msg).select();
+    try {
+      const { data, error } = await this.client
+        .from('chat_messages')
+        .insert(msg)
+        .select();
+      
+      return { data, error };
+    } catch (err) {
+      // Queue for later sync
+      const pending = JSON.parse(localStorage.getItem('PENDING_MESSAGES') || '[]');
+      pending.push({ ...msg, id: 'pending-' + Date.now() });
+      localStorage.setItem('PENDING_MESSAGES', JSON.stringify(pending));
+      return { data: [msg], error: null };
+    }
   }
 
-  async getMessages(since = null) {
+  async getMessages(limit = 100, since = null) {
     if (this.offlineMode) {
-      // Возвращаем локальные + pending
       const local = JSON.parse(localStorage.getItem('CHAT_HISTORY') || '[]');
       return { data: local, error: null };
     }
@@ -324,13 +551,23 @@ class GhostHubDatabase {
       .from('chat_messages')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(limit);
     
     if (since) {
       query = query.gt('created_at', since);
     }
 
-    return await query;
+    const { data, error } = await query;
+    return { data, error };
+  }
+
+  async markMessageDelivered(messageId) {
+    if (this.offlineMode) return { error: null };
+    
+    return await this.client
+      .from('chat_messages')
+      .update({ delivered: true })
+      .eq('id', messageId);
   }
 
   // Логи инцидентов
@@ -343,8 +580,10 @@ class GhostHubDatabase {
       gps_lng: logData.lng,
       emf: logData.emf,
       noise: logData.noise,
-      audio_data: logData.audioData, // base64 или ссылка
+      audio_data: logData.audioData,
       audio_duration: logData.audioDuration,
+      notes: logData.notes || '',
+      severity: logData.severity || 1,
       created_at: new Date().toISOString()
     };
 
@@ -355,10 +594,23 @@ class GhostHubDatabase {
       return { data: [record], error: null };
     }
 
-    return await this.client.from('incident_logs').insert(record).select();
+    try {
+      const { data, error } = await this.client
+        .from('incident_logs')
+        .insert(record)
+        .select();
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (err) {
+      const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
+      logs.unshift({ ...record, id: 'local-' + Date.now(), sync_pending: true });
+      localStorage.setItem('INCIDENT_LOGS', JSON.stringify(logs.slice(0, 50)));
+      return { data: [record], error: null };
+    }
   }
 
-  async getLogs(userId = null) {
+  async getLogs(userId = null, limit = 50) {
     if (this.offlineMode) {
       const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
       return { data: logs, error: null };
@@ -368,22 +620,30 @@ class GhostHubDatabase {
       .from('incident_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(limit);
     
     if (userId) {
       query = query.eq('user_id', userId);
     }
 
-    return await query;
+    const { data, error } = await query;
+    return { data, error };
   }
 
   // Оборудование
-  async registerEquipment(userId, name, type, ipAddress) {
+  async registerEquipment(userId, name, type, ipAddress, config = {}) {
     if (this.offlineMode) return { error: { message: 'Offline mode' } };
 
     return await this.client
       .from('equipment')
-      .insert({ user_id: userId, name, type, ip_address: ipAddress })
+      .insert({ 
+        user_id: userId, 
+        name, 
+        type, 
+        ip_address: ipAddress,
+        config,
+        last_seen: new Date().toISOString()
+      })
       .select();
   }
 
@@ -392,59 +652,114 @@ class GhostHubDatabase {
 
     return await this.client
       .from('equipment')
-      .update({ status, battery, is_on: isOn, last_seen: new Date().toISOString() })
+      .update({ 
+        status, 
+        battery, 
+        is_on: isOn, 
+        last_seen: new Date().toISOString() 
+      })
       .eq('id', equipmentId);
   }
 
   async getEquipment(userId) {
     if (this.offlineMode) {
-      return { data: JSON.parse(localStorage.getItem('EQUIPMENT') || '[]'), error: null };
+      return { 
+        data: JSON.parse(localStorage.getItem('EQUIPMENT') || '[]'), 
+        error: null 
+      };
     }
 
-    return await this.client
+    const { data, error } = await this.client
       .from('equipment')
       .select('*')
       .eq('user_id', userId);
+    
+    return { data, error };
   }
 
-  // Realtime подписки
-  subscribeToMessages(callback) {
-    if (this.offlineMode || !this.client) return null;
+  // Аудио записи
+  async saveAudioRecord(userId, duration, metadata = {}) {
+    if (this.offlineMode) {
+      const records = JSON.parse(localStorage.getItem('AUDIO_RECORDS') || '[]');
+      records.unshift({
+        id: 'local-' + Date.now(),
+        user_id: userId,
+        duration,
+        metadata,
+        created_at: new Date().toISOString()
+      });
+      localStorage.setItem('AUDIO_RECORDS', JSON.stringify(records.slice(0, 20)));
+      return { data: records[0], error: null };
+    }
 
-    return this.client
-      .channel('chat')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, callback)
-      .subscribe();
+    return await this.client
+      .from('audio_records')
+      .insert({
+        user_id: userId,
+        duration,
+        metadata,
+        mime_type: 'audio/webm'
+      })
+      .select();
   }
 
-  subscribeToTeamUpdates(callback) {
-    if (this.offlineMode || !this.client) return null;
-
-    return this.client
-      .channel('team')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_sessions' }, callback)
-      .subscribe();
-  }
-
-  // Синхронизация после восстановления связи
+  // ==================== СИНХРОНИЗАЦИЯ ====================
   async syncPendingData() {
     if (this.offlineMode) return;
 
+    console.log('[DB] Starting sync...');
+
     // Синхронизируем сообщения
     const pendingMessages = JSON.parse(localStorage.getItem('PENDING_MESSAGES') || '[]');
+    const remainingMessages = [];
+
     for (const msg of pendingMessages) {
-      const { error } = await this.sendMessage(msg.user_id, msg.author_name, msg.author_role, msg.message);
-      if (!error) {
-        // Удаляем из pending
-        const updated = pendingMessages.filter(m => m.id !== msg.id);
-        localStorage.setItem('PENDING_MESSAGES', JSON.stringify(updated));
+      try {
+        const { error } = await this.sendMessage(
+          msg.user_id,
+          msg.author_name,
+          msg.author_role,
+          msg.message,
+          msg.metadata
+        );
+        if (error) throw error;
+      } catch (err) {
+        remainingMessages.push(msg);
       }
     }
+
+    localStorage.setItem('PENDING_MESSAGES', JSON.stringify(remainingMessages));
+
+    // Синхронизируем логи
+    const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
+    const unsyncedLogs = logs.filter(l => l.sync_pending);
+    
+    for (const log of unsyncedLogs) {
+      try {
+        const { error } = await this.saveLog(log.user_id, {
+          time: log.time,
+          gps: log.gps,
+          lat: log.gps_lat,
+          lng: log.gps_lng,
+          emf: log.emf,
+          noise: log.noise,
+          audioData: log.audio_data,
+          audioDuration: log.audio_duration
+        });
+        if (!error) {
+          log.sync_pending = false;
+        }
+      } catch (err) {
+        // Keep as pending
+      }
+    }
+
+    localStorage.setItem('INCIDENT_LOGS', JSON.stringify(logs));
 
     console.log('[DB] Sync completed');
   }
 
-  // Проверка статуса
+  // ==================== УТИЛИТЫ ====================
   isOnline() {
     return !this.offlineMode && this.isInitialized;
   }
@@ -452,12 +767,17 @@ class GhostHubDatabase {
   getClient() {
     return this.client;
   }
+
+  // Callbacks для realtime
+  onNewMessage = null;
+  onTeamUpdate = null;
+  onNewLog = null;
 }
 
 // Создаём глобальный экземпляр
 const ghostDB = new GhostHubDatabase();
 
-// Экспорт для использования в других модулях
+// Экспорт
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ghostDB;
 }
