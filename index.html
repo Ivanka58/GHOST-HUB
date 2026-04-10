@@ -607,47 +607,63 @@
                 </div>
             </div>
 
-            <!-- CHAT VIEW -->
+                        <!-- CHAT VIEW -->
             <div id="chat-view" class="view-section">
                 <div class="chat-header">
                     <h2 class="section-title">// QUILL-CHAT</h2>
                     <div class="chat-status">
                         <span class="status-dot active"></span>
-                        <span class="status-text" id="chat-network-status">P2P MESH</span>
+                        <span class="status-text" id="chat-network-status">OFFLINE</span>
                     </div>
                 </div>
 
-                <!-- Connection Mode Selector -->
-                <div class="chat-connection-modes">
-                    <button class="chat-mode-btn" id="chat-mode-wifi" title="WebRTC P2P через WiFi">
+                <!-- Connection Mode Selector - ТОЛЬКО ЭТО ПОКАЗЫВАЕТСЯ ПО УМОЛЧАНИЮ -->
+                <div id="chat-mode-selector" class="chat-mode-selector">
+                    <h3 class="mode-selector-title">ВЫБЕРИТЕ РЕЖИМ СВЯЗИ</h3>
+                    
+                    <button class="chat-mode-btn large" id="chat-mode-wifi">
                         <span class="mode-icon">📶</span>
-                        <span>WIFI</span>
+                        <span class="mode-name">WI-FI P2P</span>
+                        <span class="mode-desc">Прямое соединение через LAN</span>
                     </button>
-                    <button class="chat-mode-btn" id="chat-mode-bt" title="Bluetooth (в разработке)">
+                    
+                    <button class="chat-mode-btn large disabled" id="chat-mode-bt" disabled>
                         <span class="mode-icon">📱</span>
-                        <span>BT</span>
+                        <span class="mode-name">BLUETOOTH</span>
+                        <span class="mode-desc">В разработке</span>
                     </button>
-                    <button class="chat-mode-btn" id="chat-mode-lora" title="LoRa (в разработке)">
+                    
+                    <button class="chat-mode-btn large disabled" id="chat-mode-lora" disabled>
                         <span class="mode-icon">📡</span>
-                        <span>LORA</span>
+                        <span class="mode-name">LORA</span>
+                        <span class="mode-desc">В разработке</span>
                     </button>
                 </div>
 
-                <div class="chat-messages" id="chat-messages">
-                    <div class="chat-system">
-                        <span class="system-time">[00:00:00]</span>
-                        <span class="system-text">СИСТЕМА: Ожидание подключения узлов...</span>
+                <!-- Chat Interface - ПОКАЗЫВАЕТСЯ ТОЛЬКО ПОСЛЕ ПОДКЛЮЧЕНИЯ -->
+                <div id="chat-interface" class="chat-interface hidden">
+                    <div class="webrtc-connection-status" id="webrtc-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">P2P MESH</span>
+                        <button id="webrtc-settings-btn" class="webrtc-settings-btn">⚙️</button>
                     </div>
-                </div>
 
-                <div class="chat-input-area">
-                    <input type="text" id="chat-input" class="chat-input" placeholder="Введите сообщение..." maxlength="200">
-                    <button id="chat-send" class="chat-send">➤</button>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-system">
+                            <span class="system-time">[00:00:00]</span>
+                            <span class="system-text">СИСТЕМА: Ожидание подключения узлов...</span>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" class="chat-input" placeholder="Введите сообщение..." maxlength="200">
+                        <button id="chat-send" class="chat-send">➤</button>
+                    </div>
+                    
+                    <button id="webrtc-disconnect" class="webrtc-disconnect-btn hidden">[ ОТКЛЮЧИТЬСЯ ]</button>
                 </div>
             </div>
-
-        </main>
-
+            
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-main">
@@ -836,7 +852,7 @@
         </div>
     </div>
 
-    <!-- WebRTC Connection Modal -->
+        <!-- WebRTC Connection Modal -->
     <div id="webrtc-modal" class="modal hidden">
         <div class="modal-overlay"></div>
         <div class="modal-content">
@@ -844,57 +860,75 @@
                 <span class="modal-title">◈ P2P WEBRTC CONNECT</span>
                 <button class="close-btn">×</button>
             </div>
-            <div class="modal-body">
-                <div class="webrtc-modes">
-                    <button id="webrtc-create-btn" class="webrtc-mode-btn active">
-                        <span class="mode-icon">🏠</span>
-                        <span class="mode-label">СОЗДАТЬ КОМНАТУ</span>
-                    </button>
-                    <button id="webrtc-join-btn" class="webrtc-mode-btn">
-                        <span class="mode-icon">🔗</span>
-                        <span class="mode-label">ПОДКЛЮЧИТЬСЯ</span>
-                    </button>
+            <div class="modal-body webrtc-modal-content">
+                
+                <!-- Menu Panel -->
+                <div id="webrtc-menu-panel" class="webrtc-panel">
+                    <div class="webrtc-action-btns">
+                        <button id="webrtc-create-action" class="webrtc-action-btn">
+                            <span class="btn-icon">🏠</span>
+                            <span class="btn-text">
+                                <span class="btn-title">СОЗДАТЬ КОМНАТУ</span>
+                                <span class="btn-subtitle">Сгенерировать ID и QR-код</span>
+                            </span>
+                        </button>
+                        
+                        <div class="or-divider">ИЛИ</div>
+                        
+                        <button id="webrtc-join-action" class="webrtc-action-btn">
+                            <span class="btn-icon">🔗</span>
+                            <span class="btn-text">
+                                <span class="btn-title">ПОДКЛЮЧИТЬСЯ</span>
+                                <span class="btn-subtitle">Ввести ID комнаты</span>
+                            </span>
+                        </button>
+                    </div>
+                    
+                    <div class="webrtc-info-box">
+                        <p>WebRTC устанавливает прямое соединение между устройствами через локальную сеть (LAN) без интернета. Оба устройства должны быть в одной WiFi сети.</p>
+                    </div>
                 </div>
                 
                 <!-- Create Room Panel -->
-                <div id="webrtc-create-panel" class="webrtc-panel active">
-                    <div class="room-info">
+                <div id="webrtc-create-panel" class="webrtc-panel hidden">
+                    <div class="room-creation-panel">
                         <div class="room-id-display">
-                            <span class="room-label">ID КОМНАТЫ:</span>
-                            <span id="webrtc-room-id" class="room-id">------</span>
+                            <span class="room-id-label">ID КОМНАТЫ</span>
+                            <span id="webrtc-room-id-display" class="room-id-value">------</span>
                         </div>
-                        <div class="qr-container" id="webrtc-qr">
-                            <!-- QR код будет здесь -->
+                        
+                        <div id="webrtc-qr-code" class="room-qr-code">
+                            <!-- QR здесь -->
                         </div>
-                        <div class="room-status" id="webrtc-room-status">
-                            Нажмите "Создать комнату"
+                        
+                        <div id="webrtc-room-status" class="room-status-text">
+                            Ожидание подключения...
                         </div>
                     </div>
-                    <button id="webrtc-generate-room" class="control-btn start">
-                        [ СОЗДАТЬ КОМНАТУ ]
+                    
+                    <button class="control-btn start" onclick="WebRTCChat.showPanel('menu')">
+                        [ НАЗАД ]
                     </button>
                 </div>
                 
                 <!-- Join Room Panel -->
                 <div id="webrtc-join-panel" class="webrtc-panel hidden">
-                    <div class="join-form">
-                        <div class="input-group">
-                            <label class="input-label">ВВЕДИТЕ ID КОМНАТЫ</label>
-                            <input type="text" id="webrtc-join-id" class="auth-input" placeholder="123456" maxlength="6">
+                    <div class="room-join-panel">
+                        <div class="join-input-group">
+                            <input type="text" id="webrtc-join-input" class="join-input" placeholder="123456" maxlength="6" inputmode="numeric">
                         </div>
-                        <div class="or-divider">ИЛИ</div>
-                        <button id="webrtc-scan-qr" class="navigator-action-btn secondary">
-                            <span>📷 СКАНИРОВАТЬ QR</span>
-                        </button>
+                        <div class="join-hint">Введите 6-значный ID комнаты</div>
                     </div>
-                    <button id="webrtc-connect-btn" class="control-btn start">
+                    
+                    <button id="webrtc-confirm-join" class="control-btn start">
                         [ ПОДКЛЮЧИТЬСЯ ]
+                    </button>
+                    
+                    <button class="control-btn stop" onclick="WebRTCChat.showPanel('menu')" style="margin-top: 10px;">
+                        [ ОТМЕНА ]
                     </button>
                 </div>
                 
-                <div class="webrtc-info">
-                    <p>WebRTC устанавливает прямое соединение между устройствами через локальную сеть (LAN) без интернета.</p>
-                </div>
             </div>
         </div>
     </div>
