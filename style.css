@@ -2677,310 +2677,107 @@ body.night-mode {
 }
 
 /* ============================================
-   WEBRTC CHAT STYLES - НОВЫЕ СТИЛИ
+   ИСПРАВЛЕННЫЕ СТИЛИ ЧАТА - НОВЫЕ/ИЗМЕНЁННЫЕ
    ============================================ */
 
-/* Connection Mode Selector in Chat */
-.chat-connection-modes {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 16px;
-    padding: 12px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--stealth-gray);
-}
-
-.chat-mode-btn {
+/* Mode Selector - Главный экран чата */
+.chat-mode-selector {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 12px 8px;
-    background: var(--bg-primary);
-    border: 2px solid var(--stealth-gray);
-    border-radius: 8px;
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 10px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    letter-spacing: 0.5px;
-}
-
-.chat-mode-btn .mode-icon {
-    font-size: 20px;
-}
-
-.chat-mode-btn.active {
-    border-color: var(--accent-cyan);
-    background: rgba(0, 229, 255, 0.1);
-    color: var(--accent-cyan);
-}
-
-.chat-mode-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.chat-mode-btn.connected {
-    border-color: var(--success);
-    background: rgba(0, 255, 136, 0.1);
-    color: var(--success);
-    animation: pulse 2s infinite;
-}
-
-/* WebRTC Modal Styles */
-.webrtc-modes {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
-}
-
-.webrtc-mode-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 14px;
-    background: var(--bg-primary);
-    border: 2px solid var(--stealth-gray);
-    border-radius: 8px;
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.webrtc-mode-btn.active {
-    border-color: var(--accent-cyan);
-    background: rgba(0, 229, 255, 0.1);
-    color: var(--accent-cyan);
-}
-
-.webrtc-panel {
-    display: none;
-}
-
-.webrtc-panel.active {
-    display: block;
-    animation: slideIn 0.3s ease;
-}
-
-.room-info {
-    background: var(--bg-primary);
-    border-radius: 8px;
+    gap: 16px;
     padding: 20px;
-    margin-bottom: 16px;
-    text-align: center;
-    border: 2px dashed var(--stealth-gray);
-}
-
-.room-id-display {
-    margin-bottom: 16px;
-}
-
-.room-label {
-    display: block;
-    font-size: 10px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-    letter-spacing: 2px;
-}
-
-.room-id {
-    display: block;
-    font-size: 32px;
-    color: var(--accent-orange);
-    font-weight: 800;
-    letter-spacing: 8px;
-    font-family: 'JetBrains Mono', monospace;
-}
-
-.qr-container {
-    width: 160px;
-    height: 160px;
-    margin: 0 auto 16px;
     background: var(--bg-secondary);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--stealth-gray);
-}
-
-.qr-container canvas {
-    border-radius: 4px;
-}
-
-.room-status {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.room-status.connected {
-    color: var(--success);
-    font-weight: 700;
-}
-
-.join-form {
-    background: var(--bg-primary);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 16px;
-}
-
-.or-divider {
-    text-align: center;
-    font-size: 10px;
-    color: var(--text-secondary);
-    margin: 16px 0;
-    position: relative;
-}
-
-.or-divider::before,
-.or-divider::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    width: 30%;
-    height: 1px;
-    background: var(--stealth-gray);
-}
-
-.or-divider::before { left: 0; }
-.or-divider::after { right: 0; }
-
-.webrtc-info {
-    margin-top: 20px;
-    padding: 12px;
-    background: rgba(0, 229, 255, 0.05);
-    border-left: 3px solid var(--accent-cyan);
-    border-radius: 4px;
-}
-
-.webrtc-info p {
-    font-size: 11px;
-    color: var(--text-secondary);
-    line-height: 1.5;
-    margin: 0;
-}
-
-/* Coming Soon Modal */
-.coming-soon {
-    text-align: center;
-    padding: 40px 20px;
-}
-
-.soon-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.soon-title {
-    font-size: 18px;
-    color: var(--accent-orange);
-    font-weight: 800;
-    letter-spacing: 4px;
-    margin-bottom: 12px;
-}
-
-.soon-text {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 20px;
-    line-height: 1.5;
-}
-
-.soon-hint {
-    font-size: 11px;
-    color: var(--accent-cyan);
-    padding: 12px;
-    background: rgba(0, 229, 255, 0.1);
-    border-radius: 6px;
-    border: 1px dashed var(--accent-cyan);
-}
-
-/* QR Scanner */
-.qr-video-container {
-    position: relative;
-    width: 100%;
-    height: 300px;
-    background: #000;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 16px;
-}
-
-.qr-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.qr-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.qr-frame {
-    width: 200px;
-    height: 200px;
-    border: 2px solid var(--accent-cyan);
     border-radius: 12px;
-    position: relative;
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+    border: 1px solid var(--stealth-gray);
+    min-height: calc(100vh - 250px);
+    justify-content: center;
 }
 
-.qr-frame::before,
-.qr-frame::after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    border-color: var(--accent-cyan);
-    border-style: solid;
-}
-
-.qr-frame::before {
-    top: -2px;
-    left: -2px;
-    border-width: 4px 0 0 4px;
-}
-
-.qr-frame::after {
-    bottom: -2px;
-    right: -2px;
-    border-width: 0 4px 4px 0;
-}
-
-.qr-hint {
+.mode-selector-title {
     text-align: center;
-    font-size: 12px;
+    font-size: 14px;
+    color: var(--accent-orange);
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.chat-mode-btn.large {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 30px 20px;
+    background: var(--bg-primary);
+    border: 2px solid var(--stealth-gray);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s;
+    width: 100%;
+}
+
+.chat-mode-btn.large:active:not(:disabled) {
+    transform: scale(0.98);
+    border-color: var(--accent-cyan);
+    background: rgba(0, 229, 255, 0.1);
+}
+
+.chat-mode-btn.large .mode-icon {
+    font-size: 40px;
+    margin-bottom: 4px;
+}
+
+.chat-mode-btn.large .mode-name {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--accent-cyan);
+}
+
+.chat-mode-btn.large .mode-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.chat-mode-btn.large.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: var(--stealth-gray);
+}
+
+.chat-mode-btn.large.disabled .mode-name {
     color: var(--text-secondary);
 }
 
-/* Connection Status Indicator */
+/* Chat Interface - скрыт по умолчанию */
+.chat-interface {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 200px);
+}
+
+.chat-interface.hidden {
+    display: none !important;
+}
+
+.chat-mode-selector.hidden {
+    display: none !important;
+}
+
+/* WebRTC Status Bar */
 .webrtc-connection-status {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     background: var(--bg-secondary);
     border-radius: 20px;
     margin-bottom: 12px;
     font-size: 11px;
+    border: 1px solid var(--stealth-gray);
 }
 
 .webrtc-connection-status .status-dot {
@@ -3000,36 +2797,229 @@ body.night-mode {
     box-shadow: 0 0 8px var(--success);
 }
 
-.webrtc-connection-status.failed .status-dot {
-    background: var(--danger);
+.webrtc-connection-status .status-text {
+    flex: 1;
+    color: var(--text-secondary);
 }
 
-/* Message styles for WebRTC */
-.chat-message.webrtc {
-    border-left-color: var(--success);
-    background: rgba(0, 255, 136, 0.05);
-}
-
-.chat-message.webrtc .chat-author {
+.webrtc-connection-status.connected .status-text {
     color: var(--success);
+    font-weight: 700;
+}
+
+.webrtc-settings-btn {
+    background: none;
+    border: none;
+    color: var(--accent-cyan);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+}
+
+/* WebRTC Modal - упрощённый */
+.webrtc-modal-content {
+    padding: 20px;
+}
+
+.webrtc-action-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.webrtc-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    background: var(--bg-primary);
+    border: 2px solid var(--stealth-gray);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.webrtc-action-btn:active {
+    border-color: var(--accent-cyan);
+    background: rgba(0, 229, 255, 0.1);
+}
+
+.webrtc-action-btn .btn-icon {
+    font-size: 28px;
+}
+
+.webrtc-action-btn .btn-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.webrtc-action-btn .btn-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+.webrtc-action-btn .btn-subtitle {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* Room Creation Panel */
+.room-creation-panel,
+.room-join-panel {
+    background: var(--bg-primary);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.room-id-display {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.room-id-label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+}
+
+.room-id-value {
+    display: block;
+    font-size: 36px;
+    color: var(--accent-orange);
+    font-weight: 800;
+    letter-spacing: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 16px;
+}
+
+.room-qr-code {
+    width: 160px;
+    height: 160px;
+    margin: 0 auto 16px;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.room-status-text {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.room-status-text.connected {
+    color: var(--success);
+    font-weight: 700;
+}
+
+/* Join Panel */
+.join-input-group {
+    margin-bottom: 16px;
+}
+
+.join-input {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 2px solid var(--stealth-gray);
+    border-radius: 8px;
+    padding: 16px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 24px;
+    text-align: center;
+    letter-spacing: 8px;
+    font-weight: 700;
+    outline: none;
+}
+
+.join-input:focus {
+    border-color: var(--accent-cyan);
+}
+
+.join-input::placeholder {
+    color: var(--stealth-gray);
+    font-size: 18px;
+    letter-spacing: 4px;
+}
+
+.join-hint {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+/* OR Divider */
+.or-divider {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin: 16px 0;
+    position: relative;
+}
+
+.or-divider::before,
+.or-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 35%;
+    height: 1px;
+    background: var(--stealth-gray);
+}
+
+.or-divider::before { left: 0; }
+.or-divider::after { right: 0; }
+
+/* WebRTC Info */
+.webrtc-info-box {
+    margin-top: 20px;
+    padding: 12px;
+    background: rgba(0, 229, 255, 0.05);
+    border-left: 3px solid var(--accent-cyan);
+    border-radius: 4px;
+}
+
+.webrtc-info-box p {
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
 }
 
 /* Disconnect button */
 .webrtc-disconnect-btn {
     width: 100%;
     padding: 12px;
-    background: var(--danger);
-    border: none;
-    border-radius: 6px;
-    color: var(--bg-primary);
+    background: transparent;
+    border: 2px solid var(--danger);
+    border-radius: 8px;
+    color: var(--danger);
     font-family: inherit;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    margin-top: 12px;
+    margin-top: 8px;
     letter-spacing: 1px;
+    transition: all 0.2s;
 }
 
 .webrtc-disconnect-btn:active {
-    transform: scale(0.98);
+    background: var(--danger);
+    color: var(--bg-primary);
 }
+
+.webrtc-disconnect-btn.hidden {
+    display: none !important;
+}
+
+/* Coming Soon Modals - уже есть, оставляем */
