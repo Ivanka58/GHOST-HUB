@@ -2094,14 +2094,14 @@ function initDeadManSwitch() {
   }
 }
 
-// ==================== WEBRTC P2P CHAT ====================
+// ==================== WEBRTC P2P CHAT - ИСПРАВЛЕННЫЙ ====================
 const WebRTCChat = {
   peer: null,
-  connection: null,
+  dataChannel: null,
   roomId: null,
   isHost: false,
-  dataChannel: null,
   connected: false,
+  currentPanel: 'menu', // menu, create, join
   
   config: {
     iceServers: [
@@ -2116,111 +2116,117 @@ const WebRTCChat = {
   },
   
   initUI() {
-    // Обработчики кнопок режимов
+    // Кнопки выбора режима на главном экране чата
     document.getElementById('chat-mode-wifi').addEventListener('click', () => {
       haptic();
-      document.getElementById('webrtc-modal').classList.remove('hidden');
+      this.openWebRTCModal();
     });
     
     document.getElementById('chat-mode-bt').addEventListener('click', () => {
       haptic();
-      document.getElementById('bluetooth-modal').classList.remove('hidden');
+      showToast('Bluetooth режим в разработке', 'error');
     });
     
     document.getElementById('chat-mode-lora').addEventListener('click', () => {
       haptic();
-      document.getElementById('lora-modal').classList.remove('hidden');
+      showToast('LoRa режим в разработке', 'error');
     });
     
-    // WebRTC модал
-    document.getElementById('webrtc-create-btn').addEventListener('click', () => {
+    // Настройки WebRTC (шестерёнка)
+    document.getElementById('webrtc-settings-btn').addEventListener('click', () => {
       haptic();
-      this.switchPanel('create');
+      this.openWebRTCModal();
     });
     
-    document.getElementById('webrtc-join-btn').addEventListener('click', () => {
+    // Отключение
+    document.getElementById('webrtc-disconnect').addEventListener('click', () => {
       haptic();
-      this.switchPanel('join');
-    });
-    
-    document.getElementById('webrtc-generate-room').addEventListener('click', () => {
-      haptic();
-      this.createRoom();
-    });
-    
-    document.getElementById('webrtc-connect-btn').addEventListener('click', () => {
-      haptic();
-      this.joinRoom();
-    });
-    
-    document.getElementById('webrtc-scan-qr').addEventListener('click', () => {
-      haptic();
-      this.startQRScanner();
+      this.disconnect();
     });
     
     // Закрытие модалов
     document.querySelectorAll('#webrtc-modal .close-btn, #webrtc-modal .modal-overlay').forEach(el => {
       el.addEventListener('click', () => {
         document.getElementById('webrtc-modal').classList.add('hidden');
-      });
-    });
-    
-    document.querySelectorAll('#bluetooth-modal .close-btn, #bluetooth-modal .modal-overlay').forEach(el => {
-      el.addEventListener('click', () => {
-        document.getElementById('bluetooth-modal').classList.add('hidden');
-      });
-    });
-    
-    document.querySelectorAll('#lora-modal .close-btn, #lora-modal .modal-overlay').forEach(el => {
-      el.addEventListener('click', () => {
-        document.getElementById('lora-modal').classList.add('hidden');
+        this.currentPanel = 'menu';
       });
     });
   },
   
-  switchPanel(mode) {
-    document.querySelectorAll('.webrtc-mode-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`webrtc-${mode}-btn`).classList.add('active');
-    
-    document.querySelectorAll('.webrtc-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById(`webrtc-${mode}-panel`).classList.add('active');
+  // Открыть модальное окно WebRTC с выбором создать/подключиться
+  openWebRTCModal() {
+    const modal = document.getElementById('webrtc-modal');
+    modal.classList.remove('hidden');
+    this.showPanel('menu');
   },
   
-  initSignaling() {
-    if ('BroadcastChannel' in window) {
-      this.localChannel = new BroadcastChannel('ghost_hub_webrtc');
-      this.localChannel.onmessage = (e) => this.handleSignal(e.data);
+  // Показать панель в модале
+  showPanel(panel) {
+    this.currentPanel = panel;
+    
+    // Скрыть все панели
+    document.getElementById('webrtc-menu-panel').classList.add('hidden');
+    document.getElementById('webrtc-create-panel').classList.add('hidden');
+    document.getElementById('webrtc-join-panel').classList.add('hidden');
+    
+    // Показать нужную
+    document.getElementById(`webrtc-${panel}-panel`).classList.remove('hidden');
+    
+    // Обновить заголовок
+    const titles = {
+      'menu': '◈ P2P WEBRTC CONNECT',
+      'create': '◈ СОЗДАТЬ КОМНАТУ',
+      'join': '◈ ПОДКЛЮЧИТЬСЯ'
+    };
+    document.querySelector('#webrtc-modal .modal-title').textContent = titles[panel];
+    
+    // Назначить обработчики кнопок если menu
+    if (panel === 'menu') {
+      document.getElementById('webrtc-create-action').onclick = () => {
+        haptic();
+        this.showPanel('create');
+        this.startRoomCreation();
+      };
+      
+      document.getElementById('webrtc-join-action').onclick = () => {
+        haptic();
+        this.showPanel('join');
+        document.getElementById('webrtc-join-input').focus();
+      };
     }
     
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'ghost_hub_signal') {
-        const data = JSON.parse(e.newValue);
-        this.handleSignal(data);
-      }
-    });
+    // Назначить обработчик подключения если join
+    if (panel === 'join') {
+      document.getElementById('webrtc-confirm-join').onclick = () => {
+        haptic();
+        this.confirmJoin();
+      };
+    }
   },
   
-  generateRoomId() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  },
-  
-  async createRoom() {
+  // Начать создание комнаты
+  async startRoomCreation() {
     this.roomId = this.generateRoomId();
     this.isHost = true;
     
-    document.getElementById('webrtc-room-id').textContent = this.roomId;
+    document.getElementById('webrtc-room-id-display').textContent = this.roomId;
     document.getElementById('webrtc-room-status').textContent = 'Ожидание подключения...';
-    document.getElementById('webrtc-generate-room').classList.add('hidden');
     
+    // Генерация QR
     this.generateQR(this.roomId);
+    
+    // Создание PeerConnection
     this.setupPeerConnection();
     
+    // Создание DataChannel
     this.dataChannel = this.peer.createDataChannel('chat', { ordered: true });
     this.setupDataChannel(this.dataChannel);
     
+    // Создание offer
     const offer = await this.peer.createOffer();
     await this.peer.setLocalDescription(offer);
     
+    // Отправка offer
     this.broadcastSignal({
       type: 'offer',
       roomId: this.roomId,
@@ -2230,11 +2236,12 @@ const WebRTCChat = {
     
     AudioEngine.play('success');
     showToast(`Комната ${this.roomId} создана`);
-    document.getElementById('chat-mode-wifi').classList.add('connected');
   },
   
-  async joinRoom() {
-    const inputId = document.getElementById('webrtc-join-id').value.trim();
+  // Подтвердить подключение (после ввода ID)
+  async confirmJoin() {
+    const inputId = document.getElementById('webrtc-join-input').value.trim();
+    
     if (!inputId || inputId.length !== 6) {
       showToast('Введите 6-значный ID комнаты', 'error');
       return;
@@ -2244,20 +2251,71 @@ const WebRTCChat = {
     this.isHost = false;
     
     this.setupPeerConnection();
-    document.getElementById('webrtc-room-status').textContent = 'Подключение...';
-    this.pendingJoin = true;
     
-    showToast('Ожидание хоста...');
-    AudioEngine.play('click');
+    document.getElementById('webrtc-modal').classList.add('hidden');
+    showToast('Ожидание хоста... Попросите создателя комнаты открыть приложение.');
     
+    // Показать интерфейс чата со статусом подключения
+    this.showChatInterface();
+    this.updateConnectionStatus('connecting');
+    
+    // Таймаут
     setTimeout(() => {
-      if (!this.connected && this.pendingJoin) {
+      if (!this.connected) {
         showToast('Не удалось подключиться. Проверьте ID и что хост в сети.', 'error');
-        this.pendingJoin = false;
+        this.updateConnectionStatus('offline');
       }
     }, 30000);
   },
   
+  // Показать интерфейс чата (скрыть выбор режима)
+  showChatInterface() {
+    document.getElementById('chat-mode-selector').classList.add('hidden');
+    document.getElementById('chat-interface').classList.remove('hidden');
+    document.getElementById('webrtc-disconnect').classList.remove('hidden');
+  },
+  
+  // Вернуться к выбору режима
+  showModeSelector() {
+    document.getElementById('chat-mode-selector').classList.remove('hidden');
+    document.getElementById('chat-interface').classList.add('hidden');
+    document.getElementById('webrtc-disconnect').classList.add('hidden');
+    
+    const statusEl = document.getElementById('chat-network-status');
+    statusEl.textContent = 'OFFLINE';
+    statusEl.style.color = '';
+  },
+  
+  // Обновить статус подключения в интерфейсе
+  updateConnectionStatus(status) {
+    const statusEl = document.getElementById('webrtc-status');
+    const textEl = statusEl.querySelector('.status-text');
+    const dotEl = statusEl.querySelector('.status-dot');
+    
+    statusEl.classList.remove('connecting', 'connected', 'offline');
+    
+    switch(status) {
+      case 'connecting':
+        statusEl.classList.add('connecting');
+        textEl.textContent = 'ПОДКЛЮЧЕНИЕ...';
+        break;
+      case 'connected':
+        statusEl.classList.add('connected');
+        textEl.textContent = 'P2P CONNECTED';
+        break;
+      case 'offline':
+      default:
+        statusEl.classList.add('offline');
+        textEl.textContent = 'OFFLINE';
+    }
+  },
+  
+  // Генерация ID комнаты
+  generateRoomId() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  },
+  
+  // Настройка PeerConnection
   setupPeerConnection() {
     this.peer = new RTCPeerConnection(this.config);
     
@@ -2289,6 +2347,7 @@ const WebRTCChat = {
     };
   },
   
+  // Настройка DataChannel
   setupDataChannel(channel) {
     channel.onopen = () => {
       console.log('DataChannel открыт');
@@ -2306,12 +2365,28 @@ const WebRTCChat = {
     };
   },
   
+  // Инициализация сигналинга
+  initSignaling() {
+    if ('BroadcastChannel' in window) {
+      this.localChannel = new BroadcastChannel('ghost_hub_webrtc');
+      this.localChannel.onmessage = (e) => this.handleSignal(e.data);
+    }
+    
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'ghost_hub_signal') {
+        const data = JSON.parse(e.newValue);
+        this.handleSignal(data);
+      }
+    });
+  },
+  
+  // Обработка сигналов
   handleSignal(data) {
     if (data.roomId !== this.roomId) return;
     
     switch(data.type) {
       case 'offer':
-        if (!this.isHost && this.pendingJoin) {
+        if (!this.isHost) {
           this.handleOffer(data.offer, data.from);
         }
         break;
@@ -2326,6 +2401,7 @@ const WebRTCChat = {
     }
   },
   
+  // Обработка offer (при подключении)
   async handleOffer(offer, from) {
     await this.peer.setRemoteDescription(offer);
     const answer = await this.peer.createAnswer();
@@ -2340,10 +2416,12 @@ const WebRTCChat = {
     showToast(`Подключение к ${from}...`);
   },
   
+  // Обработка answer
   async handleAnswer(answer) {
     await this.peer.setRemoteDescription(answer);
   },
   
+  // Обработка ICE кандидата
   async handleIceCandidate(candidate, fromHost) {
     if (fromHost !== this.isHost) {
       try {
@@ -2354,6 +2432,7 @@ const WebRTCChat = {
     }
   },
   
+  // Отправка сигнала
   broadcastSignal(data) {
     if (this.localChannel) {
       this.localChannel.postMessage(data);
@@ -2367,68 +2446,53 @@ const WebRTCChat = {
     sessionStorage.setItem('ghost_hub_signal', JSON.stringify(signalData));
   },
   
+  // Подключено
   onConnected() {
+    if (this.connected) return;
     this.connected = true;
-    this.pendingJoin = false;
     
-    document.getElementById('webrtc-room-status').textContent = '✓ ПОДКЛЮЧЕНО';
-    document.getElementById('webrtc-room-status').classList.add('connected');
+    this.updateConnectionStatus('connected');
     
     const sysMsg = {
       id: Date.now(),
       author: 'SYSTEM',
       role: 'WEBRTC',
-      text: `P2P соединение установлено. Комната: ${this.roomId}`,
+      text: `✓ P2P соединение установлено! Комната: ${this.roomId}`,
       time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
       outgoing: false,
       isSystem: true
     };
     addMessageToChat(sysMsg, true);
     
-    const statusEl = document.getElementById('chat-network-status');
-    statusEl.textContent = 'P2P CONNECTED';
-    statusEl.style.color = 'var(--success)';
-    
-    if (!document.getElementById('webrtc-disconnect')) {
-      const btn = document.createElement('button');
-      btn.id = 'webrtc-disconnect';
-      btn.className = 'webrtc-disconnect-btn';
-      btn.textContent = '[ ОТКЛЮЧИТЬ ]';
-      btn.addEventListener('click', () => this.disconnect());
-      document.querySelector('.chat-input-area').before(btn);
-    }
+    // Если в модале — закрыть
+    document.getElementById('webrtc-modal').classList.add('hidden');
     
     AudioEngine.play('success');
     showToast('P2P соединение установлено!');
-    document.getElementById('webrtc-modal').classList.add('hidden');
   },
   
+  // Отключено
   onDisconnected() {
+    if (!this.connected) return;
     this.connected = false;
     
-    const statusEl = document.getElementById('chat-network-status');
-    statusEl.textContent = 'P2P MESH';
-    statusEl.style.color = '';
-    
-    document.getElementById('chat-mode-wifi').classList.remove('connected');
+    this.updateConnectionStatus('offline');
     
     const sysMsg = {
       id: Date.now(),
       author: 'SYSTEM',
       role: 'WEBRTC',
-      text: 'P2P соединение разорвано',
+      text: '✗ P2P соединение разорвано',
       time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
       outgoing: false,
       isSystem: true
     };
     addMessageToChat(sysMsg, true);
-    
-    const disconnectBtn = document.getElementById('webrtc-disconnect');
-    if (disconnectBtn) disconnectBtn.remove();
     
     showToast('Соединение разорвано', 'error');
   },
   
+  // Обработка сообщения
   handleDataChannelMessage(data) {
     if (data.type === 'chat') {
       const msg = {
@@ -2445,6 +2509,7 @@ const WebRTCChat = {
     }
   },
   
+  // Отправка сообщения
   sendMessage(text) {
     if (!this.connected || !this.dataChannel || this.dataChannel.readyState !== 'open') {
       return false;
@@ -2466,6 +2531,7 @@ const WebRTCChat = {
     return true;
   },
   
+  // Отключиться
   disconnect() {
     if (this.dataChannel) {
       this.dataChannel.close();
@@ -2473,22 +2539,20 @@ const WebRTCChat = {
     if (this.peer) {
       this.peer.close();
     }
-    this.onDisconnected();
     
     this.peer = null;
     this.dataChannel = null;
     this.roomId = null;
     this.isHost = false;
+    this.connected = false;
     
-    document.getElementById('webrtc-generate-room').classList.remove('hidden');
-    document.getElementById('webrtc-room-id').textContent = '------';
-    document.getElementById('webrtc-qr').innerHTML = '';
-    document.getElementById('webrtc-room-status').textContent = 'Нажмите "Создать комнату"';
-    document.getElementById('webrtc-room-status').classList.remove('connected');
+    this.showModeSelector();
+    showToast('Отключено от P2P сети');
   },
   
+  // Генерация QR
   generateQR(text) {
-    const container = document.getElementById('webrtc-qr');
+    const container = document.getElementById('webrtc-qr-code');
     container.innerHTML = '';
     
     if (typeof QRCode !== 'undefined') {
@@ -2496,14 +2560,15 @@ const WebRTCChat = {
         width: 140,
         margin: 2,
         color: {
-          dark: '#00E5FF',
-          light: '#0A0A0A'
+          dark: '#000000',
+          light: '#ffffff'
         }
       });
     } else {
-      container.innerHTML = `<div style="font-size:24px; color:var(--accent-cyan); font-weight:800;">${text}</div>`;
+      container.innerHTML = `<div style="font-size:20px; font-weight:800;">${text}</div>`;
     }
-  },
+  }
+};
   
   async startQRScanner() {
     document.getElementById('qr-scanner-modal').classList.remove('hidden');
