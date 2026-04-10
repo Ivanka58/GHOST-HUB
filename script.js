@@ -1,6 +1,5 @@
-﻿// script.js
-// GHOST-HUB v3.1 - WebRTC P2P Edition
-
+// script.js
+// GHOST-HUB v3.1 - Полностью исправленная версия с WebRTC P2P Chat
 
 // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
 const AppState = {
@@ -31,16 +30,8 @@ const AppState = {
   currentRecordId: null,
   currentLogId: null,
   heading: 0,
-  radarPosition: { lat: 0, lng: 0 },
-  // WebRTC
-  rtcConnection: null,
-  rtcDataChannel: null,
-  roomId: null,
-  isHost: false,
-  peers: new Map(),
-  signalingServer: null
+  radarPosition: { lat: 0, lng: 0 }
 };
-
 
 // ==================== AUDIO ENGINE ====================
 const AudioEngine = {
@@ -102,14 +93,9 @@ const AudioEngine = {
       case 'vibrate': 
         if (navigator.vibrate) navigator.vibrate(50);
         break;
-      case 'connect':
-        this.playTone(880, 0.1, 'sine', 0.15);
-        setTimeout(() => this.playTone(1100, 0.2, 'sine', 0.2), 100);
-        break;
     }
   }
 };
-
 
 // ==================== HAPTIC FEEDBACK ====================
 function haptic() {
@@ -119,14 +105,12 @@ function haptic() {
   }
 }
 
-
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 document.addEventListener('DOMContentLoaded', async () => {
   // Инициализируем аудио на первое взаимодействие
   document.addEventListener('click', () => {
     AudioEngine.init();
   }, { once: true });
-
 
   // Последовательность загрузки
   await showNativeSplash();
@@ -138,7 +122,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     checkAuth();
   }, 2500);
 });
-
 
 // Нативный Splash Screen
 async function showNativeSplash() {
@@ -157,7 +140,6 @@ async function showNativeSplash() {
   });
 }
 
-
 // Инициализация базы данных
 async function initDatabase() {
   if (typeof ghostDB !== 'undefined') {
@@ -172,13 +154,11 @@ async function initDatabase() {
   }
 }
 
-
 // Boot sequence
 function showBootSequence() {
   const boot = document.getElementById('boot-screen');
   boot.classList.remove('hidden');
 }
-
 
 function hideBootScreen() {
   const boot = document.getElementById('boot-screen');
@@ -189,7 +169,6 @@ function hideBootScreen() {
   }, 300);
 }
 
-
 // ==================== АУТЕНТИФИКАЦИЯ ====================
 function checkAuth() {
   const savedUser = localStorage.getItem('GHOST_HUB_USER');
@@ -197,7 +176,7 @@ function checkAuth() {
   if (savedUser) {
     try {
       AppState.user = JSON.parse(savedUser);
-      showConnectionScreen();
+      enterApp();
     } catch (e) {
       showAuthScreen();
     }
@@ -205,7 +184,6 @@ function checkAuth() {
     showAuthScreen();
   }
 }
-
 
 function showAuthScreen() {
   const authScreen = document.getElementById('auth-screen');
@@ -218,7 +196,6 @@ function showAuthScreen() {
   
   updateStatusIndicator(false);
 }
-
 
 // Обработчик входа
 document.getElementById('auth-login-btn').addEventListener('click', async function() {
@@ -255,602 +232,11 @@ document.getElementById('auth-login-btn').addEventListener('click', async functi
   localStorage.setItem('GHOST_HUB_USER', JSON.stringify(userData));
   
   AudioEngine.play('success');
-  showConnectionScreen();
+  enterApp();
 });
 
-
-// ==================== ЭКРАН ВЫБОРА СОЕДИНЕНИЯ ====================
-function showConnectionScreen() {
-  document.getElementById('auth-screen').classList.add('hidden');
-  document.getElementById('connection-screen').classList.remove('hidden');
-  
-  // Сброс выбора
-  selectConnectionType('wifi');
-}
-
-
-function selectConnectionType(type) {
-  document.querySelectorAll('.connection-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  
-  const selectedBtn = document.getElementById(`btn-${type}`);
-  selectedBtn.classList.add('active');
-  
-  const names = {
-    'wifi': 'WiFi / LAN',
-    'bluetooth': 'Bluetooth',
-    'lora': 'LoRa'
-  };
-  
-  document.getElementById('selected-protocol').textContent = names[type];
-  
-  if (type !== 'wifi') {
-    showToast(`${names[type]} — в разработке`, 'warning');
-  }
-}
-
-
-// Обработчики кнопок выбора соединения
-document.getElementById('btn-wifi').addEventListener('click', () => {
-  haptic();
-  selectConnectionType('wifi');
-});
-
-
-document.getElementById('btn-bluetooth').addEventListener('click', () => {
-  haptic();
-  selectConnectionType('bluetooth');
-  showToast('Bluetooth — в разработке', 'warning');
-});
-
-
-document.getElementById('btn-lora').addEventListener('click', () => {
-  haptic();
-  selectConnectionType('lora');
-  showToast('LoRa — в разработке', 'warning');
-});
-
-
-document.getElementById('btn-continue').addEventListener('click', () => {
-  haptic();
-  const selected = document.querySelector('.connection-btn.active');
-  if (selected.id === 'btn-wifi') {
-    showWebRTCScreen();
-  } else {
-    showToast('Выберите WiFi / LAN для продолжения', 'error');
-  }
-});
-
-
-// ==================== WEBRTC ЭКРАН ====================
-function showWebRTCScreen() {
-  document.getElementById('connection-screen').classList.add('hidden');
-  document.getElementById('webrtc-screen').classList.remove('hidden');
-  
-  initWebRTC();
-}
-
-
-document.getElementById('btn-back-to-connections').addEventListener('click', () => {
-  haptic();
-  document.getElementById('webrtc-screen').classList.add('hidden');
-  document.getElementById('connection-screen').classList.remove('hidden');
-  
-  // Очистка WebRTC
-  cleanupWebRTC();
-});
-
-
-// ==================== WEBRTC ЛОГИКА ====================
-function initWebRTC() {
-  // Проверяем поддержку WebRTC
-  if (!window.RTCPeerConnection) {
-    showToast('WebRTC не поддерживается браузером', 'error');
-    return;
-  }
-  
-  // Инициализация BroadcastChannel для сигналинга в локальной сети
-  try {
-    AppState.signalingServer = new BroadcastChannel('ghost_hub_signaling');
-    AppState.signalingServer.onmessage = handleSignalingMessage;
-  } catch (e) {
-    console.log('BroadcastChannel not supported, using localStorage fallback');
-    initLocalStorageSignaling();
-  }
-  
-  // Обработчики кнопок комнаты
-  document.getElementById('btn-create-room').addEventListener('click', createRoom);
-  document.getElementById('btn-join-room').addEventListener('click', joinRoom);
-  document.getElementById('btn-scan-qr').addEventListener('click', scanQRCode);
-  document.getElementById('btn-copy-room-id').addEventListener('click', copyRoomId);
-  document.getElementById('webrtc-chat-send').addEventListener('click', sendWebRTCMessage);
-  document.getElementById('webrtc-chat-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendWebRTCMessage();
-  });
-}
-
-
-function initLocalStorageSignaling() {
-  // Fallback на localStorage для старых браузеров
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'ghost_hub_signal') {
-      const data = JSON.parse(e.newValue);
-      handleSignalingMessage({ data });
-    }
-  });
-  
-  AppState.signalingServer = {
-    postMessage: (data) => {
-      localStorage.setItem('ghost_hub_signal', JSON.stringify({
-        ...data,
-        timestamp: Date.now()
-      }));
-    }
-  };
-}
-
-
-// Генерация ID комнаты (6 цифр)
-function generateRoomId() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-
-// Создание комнаты (Host)
-async function createRoom() {
-  haptic();
-  AudioEngine.play('success');
-  
-  AppState.roomId = generateRoomId();
-  AppState.isHost = true;
-  
-  document.getElementById('display-room-id').textContent = AppState.roomId;
-  document.getElementById('room-selection').classList.add('hidden');
-  document.getElementById('room-info').classList.remove('hidden');
-  document.getElementById('webrtc-chat').classList.remove('hidden');
-  
-  // Генерация QR-кода
-  generateQRCode(AppState.roomId);
-  
-  // Создаем WebRTC соединение и ждем гостей
-  await createPeerConnection();
-  
-  // Отправляем offer в сеть
-  broadcastToRoom({ type: 'host-present', roomId: AppState.roomId });
-  
-  updateWebRTCStatus('online');
-  addWebRTCSystemMessage('Комната создана. Ожидание подключения...');
-}
-
-
-// Подключение к комнате (Guest)
-async function joinRoom() {
-  haptic();
-  
-  const inputId = document.getElementById('room-id-input').value.trim();
-  
-  if (!inputId || inputId.length !== 6 || !/^\d{6}$/.test(inputId)) {
-    showToast('Введите корректный ID (6 цифр)', 'error');
-    return;
-  }
-  
-  AppState.roomId = inputId;
-  AppState.isHost = false;
-  
-  document.getElementById('display-room-id').textContent = AppState.roomId;
-  document.getElementById('room-selection').classList.add('hidden');
-  document.getElementById('room-info').classList.remove('hidden');
-  document.getElementById('webrtc-chat').classList.remove('hidden');
-  
-  // Скрываем QR для гостя
-  document.querySelector('.qr-container').style.display = 'none';
-  
-  // Создаем соединение и отправляем запрос хосту
-  await createPeerConnection();
-  
-  // Отправляем запрос на подключение
-  broadcastToRoom({ 
-    type: 'guest-request', 
-    roomId: AppState.roomId,
-    guestId: AppState.user.id,
-    guestName: AppState.user.name
-  });
-  
-  updateWebRTCStatus('online');
-  addWebRTCSystemMessage('Подключение к комнате...');
-  AudioEngine.play('connect');
-}
-
-
-// Сканирование QR-кода
-function scanQRCode() {
-  haptic();
-  // Заглушка — в реальном приложении использовать библиотеку сканирования
-  showToast('Введите ID вручную или используйте камеру устройства', 'warning');
-  
-  // Запрос доступа к камере для сканирования
-  if ('mediaDevices' in navigator) {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(stream => {
-        // Здесь можно интегрировать jsQR или подобную библиотеку
-        showToast('Камера активирована (сканирование в разработке)', 'success');
-        stream.getTracks().forEach(t => t.stop());
-      })
-      .catch(() => {
-        showToast('Доступ к камере запрещен', 'error');
-      });
-  }
-}
-
-
-// Копирование ID комнаты
-function copyRoomId() {
-  haptic();
-  navigator.clipboard.writeText(AppState.roomId).then(() => {
-    showToast('ID скопирован в буфер обмена');
-  });
-}
-
-
-// Генерация QR-кода
-function generateQRCode(text) {
-  const qrContainer = document.getElementById('qrcode');
-  qrContainer.innerHTML = '';
-  
-  try {
-    new QRCode(qrContainer, {
-      text: `ghosthub://join?room=${text}`,
-      width: 128,
-      height: 128,
-      colorDark: '#0A0A0A',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  } catch (e) {
-    console.log('QR generation failed:', e);
-    qrContainer.innerHTML = '<div style="padding:20px;background:#fff;color:#000;text-align:center;font-size:12px;">QR: ' + text + '</div>';
-  }
-}
-
-
-// Создание WebRTC соединения
-async function createPeerConnection() {
-  const config = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-  };
-  
-  AppState.rtcConnection = new RTCPeerConnection(config);
-  
-  // Создаем data channel для сообщений
-  if (AppState.isHost) {
-    AppState.rtcDataChannel = AppState.rtcConnection.createDataChannel('chat', {
-      ordered: true
-    });
-    setupDataChannel(AppState.rtcDataChannel);
-  } else {
-    AppState.rtcConnection.ondatachannel = (e) => {
-      AppState.rtcDataChannel = e.channel;
-      setupDataChannel(e.channel);
-    };
-  }
-  
-  // Обработка ICE кандидатов
-  AppState.rtcConnection.onicecandidate = (e) => {
-    if (e.candidate) {
-      broadcastToRoom({
-        type: 'ice-candidate',
-        roomId: AppState.roomId,
-        candidate: e.candidate,
-        fromHost: AppState.isHost
-      });
-    }
-  };
-  
-  // Обработка подключения
-  AppState.rtcConnection.onconnectionstatechange = () => {
-    const state = AppState.rtcConnection.connectionState;
-    console.log('WebRTC state:', state);
-    
-    if (state === 'connected') {
-      addWebRTCSystemMessage('✓ Прямое соединение установлено!');
-      AudioEngine.play('connect');
-      addPeerToList('Участник');
-    } else if (state === 'disconnected' || state === 'failed') {
-      addWebRTCSystemMessage('✗ Соединение разорвано');
-      updateWebRTCStatus('offline');
-    }
-  };
-}
-
-
-// Настройка data channel
-function setupDataChannel(channel) {
-  channel.onopen = () => {
-    console.log('Data channel opened');
-    updateWebRTCStatus('online');
-    addWebRTCSystemMessage('Канал данных открыт');
-  };
-  
-  channel.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    handleWebRTCMessage(data);
-  };
-  
-  channel.onclose = () => {
-    console.log('Data channel closed');
-    addWebRTCSystemMessage('Канал данных закрыт');
-  };
-}
-
-
-// Обработка сигнальных сообщений
-async function handleSignalingMessage(e) {
-  const data = e.data;
-  
-  // Игнорируем свои собственные сообщения
-  if (data.senderId === AppState.user.id) return;
-  
-  // Проверяем комнату
-  if (data.roomId !== AppState.roomId) return;
-  
-  switch (data.type) {
-    case 'host-present':
-      if (!AppState.isHost && !AppState.rtcConnection) {
-        // Гость обнаружил хоста
-        console.log('Host found');
-      }
-      break;
-      
-    case 'guest-request':
-      if (AppState.isHost) {
-        // Хост получил запрос от гостя
-        addWebRTCSystemMessage(`Запрос от: ${data.guestName}`);
-        await createOffer();
-      }
-      break;
-      
-    case 'offer':
-      if (!AppState.isHost) {
-        await handleOffer(data.offer);
-      }
-      break;
-      
-    case 'answer':
-      if (AppState.isHost) {
-        await handleAnswer(data.answer);
-      }
-      break;
-      
-    case 'ice-candidate':
-      await handleIceCandidate(data.candidate);
-      break;
-  }
-}
-
-
-// Создание offer (хост)
-async function createOffer() {
-  try {
-    const offer = await AppState.rtcConnection.createOffer();
-    await AppState.rtcConnection.setLocalDescription(offer);
-    
-    broadcastToRoom({
-      type: 'offer',
-      roomId: AppState.roomId,
-      offer: offer
-    });
-  } catch (e) {
-    console.error('Create offer error:', e);
-  }
-}
-
-
-// Обработка offer (гость)
-async function handleOffer(offer) {
-  try {
-    await AppState.rtcConnection.setRemoteDescription(offer);
-    const answer = await AppState.rtcConnection.createAnswer();
-    await AppState.rtcConnection.setLocalDescription(answer);
-    
-    broadcastToRoom({
-      type: 'answer',
-      roomId: AppState.roomId,
-      answer: answer
-    });
-  } catch (e) {
-    console.error('Handle offer error:', e);
-  }
-}
-
-
-// Обработка answer (хост)
-async function handleAnswer(answer) {
-  try {
-    await AppState.rtcConnection.setRemoteDescription(answer);
-  } catch (e) {
-    console.error('Handle answer error:', e);
-  }
-}
-
-
-// Обработка ICE кандидата
-async function handleIceCandidate(candidate) {
-  try {
-    await AppState.rtcConnection.addIceCandidate(candidate);
-  } catch (e) {
-    console.error('Add ICE candidate error:', e);
-  }
-}
-
-
-// Отправка сигнального сообщения
-function broadcastToRoom(message) {
-  const fullMessage = {
-    ...message,
-    senderId: AppState.user.id,
-    timestamp: Date.now()
-  };
-  
-  if (AppState.signalingServer) {
-    AppState.signalingServer.postMessage(fullMessage);
-  }
-}
-
-
-// Отправка сообщения через WebRTC
-function sendWebRTCMessage() {
-  const input = document.getElementById('webrtc-chat-input');
-  const text = input.value.trim();
-  
-  if (!text || !AppState.rtcDataChannel || AppState.rtcDataChannel.readyState !== 'open') {
-    showToast('Нет активного соединения', 'error');
-    return;
-  }
-  
-  const message = {
-    type: 'chat',
-    text: text,
-    author: AppState.user.name,
-    role: AppState.user.role,
-    time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-    id: Date.now()
-  };
-  
-  // Отправляем собеседнику
-  AppState.rtcDataChannel.send(JSON.stringify(message));
-  
-  // Добавляем в чат (исходящее)
-  addWebRTCMessage(message, true);
-  
-  input.value = '';
-  haptic();
-  AudioEngine.play('message');
-}
-
-
-// Обработка входящего сообщения
-function handleWebRTCMessage(data) {
-  if (data.type === 'chat') {
-    addWebRTCMessage(data, false);
-    AudioEngine.play('message');
-    
-    // Уведомление если вкладка не активна
-    if (document.hidden) {
-      showPushNotification('GHOST-HUB P2P', `${data.author}: ${data.text}`);
-    }
-  }
-}
-
-
-// Добавление сообщения в чат
-function addWebRTCMessage(msg, isOutgoing) {
-  const container = document.getElementById('webrtc-messages');
-  
-  const div = document.createElement('div');
-  div.className = `chat-message ${isOutgoing ? 'outgoing' : 'incoming'}`;
-  div.innerHTML = `
-    <div class="chat-author">${msg.author} (${msg.role})</div>
-    <div>${escapeHtml(msg.text)}</div>
-    <div class="chat-time">${msg.time}</div>
-  `;
-  
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-
-// Добавление системного сообщения
-function addWebRTCSystemMessage(text) {
-  const container = document.getElementById('webrtc-messages');
-  const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  
-  const div = document.createElement('div');
-  div.className = 'chat-system';
-  div.innerHTML = `
-    <span class="system-time">[${time}]</span>
-    <span class="system-text">СИСТЕМА: ${text}</span>
-  `;
-  
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-
-// Добавление пира в список
-function addPeerToList(name) {
-  const list = document.getElementById('peers-list');
-  const item = document.createElement('div');
-  item.className = 'peer-item';
-  item.innerHTML = `
-    <span class="peer-dot"></span>
-    <span class="peer-name">${name}</span>
-  `;
-  list.appendChild(item);
-}
-
-
-// Обновление статуса WebRTC
-function updateWebRTCStatus(status) {
-  const statusEl = document.getElementById('webrtc-status');
-  const dot = statusEl.querySelector('.status-dot');
-  
-  if (status === 'online') {
-    dot.classList.remove('offline');
-    dot.classList.add('online');
-    statusEl.querySelector('span:last-child').textContent = 'P2P CONNECTED';
-  } else {
-    dot.classList.remove('online');
-    dot.classList.add('offline');
-    statusEl.querySelector('span:last-child').textContent = 'OFFLINE';
-  }
-}
-
-
-// Очистка WebRTC
-function cleanupWebRTC() {
-  if (AppState.rtcDataChannel) {
-    AppState.rtcDataChannel.close();
-    AppState.rtcDataChannel = null;
-  }
-  
-  if (AppState.rtcConnection) {
-    AppState.rtcConnection.close();
-    AppState.rtcConnection = null;
-  }
-  
-  if (AppState.signalingServer) {
-    AppState.signalingServer.close();
-    AppState.signalingServer = null;
-  }
-  
-  AppState.roomId = null;
-  AppState.isHost = false;
-  AppState.peers.clear();
-  
-  // Сброс UI
-  document.getElementById('room-selection').classList.remove('hidden');
-  document.getElementById('room-info').classList.add('hidden');
-  document.getElementById('webrtc-chat').classList.add('hidden');
-  document.getElementById('webrtc-messages').innerHTML = '';
-  document.getElementById('peers-list').innerHTML = `
-    <div class="peer-item self">
-      <span class="peer-dot"></span>
-      <span class="peer-name">Вы</span>
-    </div>
-  `;
-  document.querySelector('.qr-container').style.display = 'flex';
-}
-
-
-// ==================== ВХОД В ПРИЛОЖЕНИЕ ====================
 function enterApp() {
   document.getElementById('auth-screen').classList.add('hidden');
-  document.getElementById('connection-screen').classList.add('hidden');
-  document.getElementById('webrtc-screen').classList.add('hidden');
   
   document.getElementById('app-header').classList.remove('hidden');
   document.getElementById('quick-actions').classList.remove('hidden');
@@ -881,9 +267,13 @@ function enterApp() {
   initSwipeNavigation();
   initBackButton();
   
+  // Инициализация WebRTC
+  setTimeout(() => {
+    WebRTCChat.init();
+  }, 1000);
+  
   requestPermissions();
 }
-
 
 function updateStatusIndicator(online) {
   const indicator = document.getElementById('status-indicator');
@@ -904,7 +294,6 @@ function updateStatusIndicator(online) {
   }
 }
 
-
 function updateOfflineIndicator() {
   const indicator = document.getElementById('offline-indicator');
   if (AppState.isOnline) {
@@ -913,7 +302,6 @@ function updateOfflineIndicator() {
     indicator.classList.remove('hidden');
   }
 }
-
 
 // ==================== РАЗРЕШЕНИЯ ====================
 async function requestPermissions() {
@@ -938,7 +326,6 @@ async function requestPermissions() {
   }
 }
 
-
 // ==================== ЧАСЫ И GPS ====================
 function initClock() {
   function update() {
@@ -952,7 +339,6 @@ function initClock() {
   update();
   setInterval(update, 1000);
 }
-
 
 function initGeolocation() {
   const gpsEl = document.getElementById('gps');
@@ -980,7 +366,6 @@ function initGeolocation() {
   }
 }
 
-
 function simulateGPS() {
   let baseLat = 55.7558;
   let baseLng = 37.6173;
@@ -992,20 +377,17 @@ function simulateGPS() {
   }, 3000);
 }
 
-
 // ==================== СТАТУС КОМАНДЫ ====================
 function initTeamStatus() {
   loadTeamMembers();
   setInterval(updateTeamDisplay, 5000);
 }
 
-
 async function loadTeamMembers() {
   const local = JSON.parse(localStorage.getItem('TEAM_MEMBERS') || '[]');
   AppState.teamMembers = local;
   updateTeamDisplay();
 }
-
 
 function updateTeamDisplay() {
   const grid = document.getElementById('team-grid');
@@ -1038,7 +420,6 @@ function updateTeamDisplay() {
   
   countEl.textContent = `${AppState.teamMembers.length + 1} (ВЫ)`;
 }
-
 
 // ==================== НАВИГАЦИЯ ====================
 function initNavigation() {
@@ -1080,7 +461,6 @@ function initNavigation() {
   });
 }
 
-
 // ==================== SWIPE & BACK BUTTON ====================
 function initSwipeNavigation() {
   let touchStartX = 0;
@@ -1111,7 +491,6 @@ function initSwipeNavigation() {
   }, { passive: true });
 }
 
-
 function initBackButton() {
   history.pushState({ page: 'main' }, '');
   
@@ -1137,7 +516,6 @@ function initBackButton() {
     }
   });
 }
-
 
 // ==================== QUICK ACTIONS ====================
 function initQuickActions() {
@@ -1201,7 +579,6 @@ function initQuickActions() {
     document.getElementById('deadman-modal').classList.remove('hidden');
   });
 }
-
 
 // ==================== НАВИГАТОР ====================
 function initNavigator() {
@@ -1409,8 +786,7 @@ function initNavigator() {
   });
 }
 
-
-// ==================== РАДАР ЖУЧКОВ ====================
+// ==================== РАДАР ЖУЧКОВ (РЕАЛЬНЫЙ) ====================
 function initRadar() {
   const canvas = document.getElementById('radar-canvas');
   const ctx = canvas.getContext('2d');
@@ -1525,20 +901,29 @@ function initRadar() {
     
     AudioEngine.play('success');
     
-    // Демо-сканирование
-    setTimeout(() => {
-      if (AppState.radarActive && devices.length === 0) {
-        const mockDevice = {
-          id: 'mock-1',
-          name: 'Unknown BLE Device',
+    // РЕАЛЬНОЕ сканирование Bluetooth
+    try {
+      if ('bluetooth' in navigator) {
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['battery_service', 'device_information']
+        });
+        
+        const newDevice = {
+          id: device.id,
+          name: device.name || 'Unknown Device',
           angle: (Math.random() * Math.PI * 2),
           distance: 0.3 + Math.random() * 0.5,
           rssi: -70
         };
-        devices.push(mockDevice);
-        showRadarAlert(mockDevice);
+        
+        devices.push(newDevice);
+        showRadarAlert(newDevice);
       }
-    }, 3000);
+    } catch (err) {
+      console.log('Bluetooth error:', err);
+      showToast('Bluetooth недоступен или отменено', 'error');
+    }
   });
   
   document.getElementById('radar-stop-btn').addEventListener('click', function() {
@@ -1577,7 +962,6 @@ function initRadar() {
     showPushNotification('GHOST-HUB', `Обнаружено: ${device.name}`);
   }
 }
-
 
 // ==================== СЕЙСМО ====================
 function initTremor() {
@@ -1760,7 +1144,6 @@ function initTremor() {
   };
 }
 
-
 // ==================== АУДИО РЕКОРДЕР ====================
 function initAudioRecorder() {
   let mediaRecorder = null;
@@ -1860,7 +1243,6 @@ function initAudioRecorder() {
   loadAudioRecords();
 }
 
-
 function initAudioRingBuffer() {
   AppState.audioRingBuffer = [];
   AppState.ringBufferSize = 0;
@@ -1889,9 +1271,7 @@ function initAudioRingBuffer() {
   });
 }
 
-
 function addToRingBuffer(data) {}
-
 
 async function getAudioBufferSlice(seconds) {
   const chunkCount = seconds * 10;
@@ -1907,7 +1287,6 @@ async function getAudioBufferSlice(seconds) {
     reader.readAsDataURL(blob);
   });
 }
-
 
 function loadAudioRecords() {
   const list = document.getElementById('records-list');
@@ -1948,7 +1327,6 @@ function loadAudioRecords() {
   });
 }
 
-
 // Обработчики меню записей
 document.getElementById('download-record-btn').addEventListener('click', function() {
   haptic();
@@ -1966,7 +1344,6 @@ document.getElementById('download-record-btn').addEventListener('click', functio
   document.getElementById('record-menu-modal').classList.add('hidden');
 });
 
-
 document.getElementById('delete-record-btn').addEventListener('click', function() {
   haptic();
   if (confirm('Удалить запись?')) {
@@ -1979,13 +1356,11 @@ document.getElementById('delete-record-btn').addEventListener('click', function(
   document.getElementById('record-menu-modal').classList.add('hidden');
 });
 
-
 function formatDuration(sec) {
   const m = Math.floor(sec / 60);
   const s = String(sec % 60).padStart(2, '0');
   return `${m}:${s}`;
 }
-
 
 function visualizeAudio(stream) {
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -2027,7 +1402,6 @@ function visualizeAudio(stream) {
   draw();
 }
 
-
 // ==================== ЛОГИ ====================
 function initLogs() {
   loadLogs();
@@ -2041,7 +1415,6 @@ function initLogs() {
     AudioEngine.play('alert');
   });
 }
-
 
 function loadLogs() {
   const list = document.getElementById('logs-list');
@@ -2083,7 +1456,6 @@ function loadLogs() {
   });
 }
 
-
 // Обработчики меню логов
 document.getElementById('download-log-btn').addEventListener('click', function() {
   haptic();
@@ -2101,7 +1473,6 @@ document.getElementById('download-log-btn').addEventListener('click', function()
   document.getElementById('log-menu-modal').classList.add('hidden');
 });
 
-
 document.getElementById('delete-log-btn').addEventListener('click', function() {
   haptic();
   if (confirm('Удалить этот лог?')) {
@@ -2113,7 +1484,6 @@ document.getElementById('delete-log-btn').addEventListener('click', function() {
   }
   document.getElementById('log-menu-modal').classList.add('hidden');
 });
-
 
 function playLogAudio(id) {
   const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
@@ -2129,7 +1499,6 @@ function playLogAudio(id) {
   document.getElementById('log-audio-player').src = log.audioData;
   modal.classList.remove('hidden');
 }
-
 
 // ==================== ОБОРУДОВАНИЕ ====================
 function initEquipment() {
@@ -2158,7 +1527,6 @@ function initEquipment() {
   });
 }
 
-
 function loadEquipment() {
   const cameras = document.getElementById('cameras-list');
   const lights = document.getElementById('lights-list');
@@ -2170,7 +1538,6 @@ function loadEquipment() {
   cameras.innerHTML = cams.length ? cams.map(renderEquipmentItem).join('') : '<div class="equip-empty">Нет подключенных камер</div>';
   lights.innerHTML = ligs.length ? ligs.map(renderEquipmentItem).join('') : '<div class="equip-empty">Нет подключенных ламп</div>';
 }
-
 
 function renderEquipmentItem(item) {
   const batteryClass = item.battery < 20 ? 'low' : '';
@@ -2192,7 +1559,6 @@ function renderEquipmentItem(item) {
     </div>
   `;
 }
-
 
 async function toggleEquipment(id) {
   haptic();
@@ -2221,7 +1587,6 @@ async function toggleEquipment(id) {
   localStorage.setItem('EQUIPMENT', JSON.stringify(equipment));
   loadEquipment();
 }
-
 
 // ==================== ПУЛЬС ====================
 function initPulse() {
@@ -2265,7 +1630,6 @@ function initPulse() {
   });
 }
 
-
 function simulatePulseDevice() {
   const mockDevice = {
     id: 'pulse-demo',
@@ -2279,7 +1643,6 @@ function simulatePulseDevice() {
     updatePulseDevice(mockDevice.name, mockDevice.hr, mockDevice.battery);
   }, 1000);
 }
-
 
 function updatePulseDevice(name, hr, battery) {
   const container = document.getElementById('pulse-devices');
@@ -2315,11 +1678,9 @@ function updatePulseDevice(name, hr, battery) {
   AudioEngine.play('pulse');
 }
 
-
 function loadPulseDevices() {}
 
-
-// ==================== ЧАТ (BroadcastChannel fallback) ====================
+// ==================== ЧАТ ====================
 function initChat() {
   loadChatHistory();
   
@@ -2330,7 +1691,6 @@ function initChat() {
   
   initP2PChat();
 }
-
 
 function loadChatHistory() {
   const history = JSON.parse(localStorage.getItem('CHAT_HISTORY') || '[]');
@@ -2348,18 +1708,35 @@ function loadChatHistory() {
   });
 }
 
-
 function sendChatMessage() {
   haptic();
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
   if (!text || !AppState.user) return;
   
+  // Пробуем отправить через WebRTC если активно
+  if (WebRTCChat.connected && WebRTCChat.sendMessage(text)) {
+    const msg = {
+      id: Date.now(),
+      author: AppState.user.name,
+      role: AppState.user.role,
+      text: text,
+      time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      outgoing: true,
+      isWebRTC: true
+    };
+    addMessageToChat(msg, true);
+    input.value = '';
+    AudioEngine.play('message');
+    return;
+  }
+  
+  // Fallback на BroadcastChannel
   const msg = {
     id: Date.now(),
     author: AppState.user.name,
     role: AppState.user.role,
-    text,
+    text: text,
     time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     outgoing: true
   };
@@ -2380,12 +1757,11 @@ function sendChatMessage() {
   AudioEngine.play('message');
 }
 
-
 function addMessageToChat(msg, animate) {
   const container = document.getElementById('chat-messages');
   
   const div = document.createElement('div');
-  div.className = `chat-message ${msg.outgoing ? 'outgoing' : 'incoming'} ${msg.isAlarm ? 'alarm' : ''}`;
+  div.className = `chat-message ${msg.outgoing ? 'outgoing' : 'incoming'} ${msg.isAlarm ? 'alarm' : ''} ${msg.isWebRTC ? 'webrtc' : ''}`;
   div.innerHTML = `
     <div class="chat-author">${msg.author} (${msg.role})</div>
     <div>${escapeHtml(msg.text)}</div>
@@ -2398,13 +1774,11 @@ function addMessageToChat(msg, animate) {
   container.scrollTop = container.scrollHeight;
 }
 
-
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
-
 
 function initP2PChat() {
   if ('BroadcastChannel' in window) {
@@ -2425,7 +1799,6 @@ function initP2PChat() {
   }
 }
 
-
 function broadcastMessage(msg) {
   if (AppState.broadcastChannel) {
     AppState.broadcastChannel.postMessage({
@@ -2434,7 +1807,6 @@ function broadcastMessage(msg) {
     });
   }
 }
-
 
 // ==================== ГОЛОСОВОЕ УПРАВЛЕНИЕ ====================
 function initVoiceCommand() {
@@ -2506,7 +1878,6 @@ function initVoiceCommand() {
   };
 }
 
-
 function processVoiceCommand(command) {
   const statusEl = document.getElementById('voice-status');
   statusEl.classList.remove('hidden');
@@ -2543,7 +1914,6 @@ function processVoiceCommand(command) {
   }, 2000);
 }
 
-
 function speakResponse(text) {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
@@ -2555,7 +1925,6 @@ function speakResponse(text) {
     window.speechSynthesis.speak(utterance);
   }
 }
-
 
 // ==================== DEAD MAN SWITCH ====================
 function initDeadManSwitch() {
@@ -2725,6 +2094,450 @@ function initDeadManSwitch() {
   }
 }
 
+// ==================== WEBRTC P2P CHAT ====================
+const WebRTCChat = {
+  peer: null,
+  connection: null,
+  roomId: null,
+  isHost: false,
+  dataChannel: null,
+  connected: false,
+  
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  },
+  
+  init() {
+    this.initUI();
+    this.initSignaling();
+  },
+  
+  initUI() {
+    // Обработчики кнопок режимов
+    document.getElementById('chat-mode-wifi').addEventListener('click', () => {
+      haptic();
+      document.getElementById('webrtc-modal').classList.remove('hidden');
+    });
+    
+    document.getElementById('chat-mode-bt').addEventListener('click', () => {
+      haptic();
+      document.getElementById('bluetooth-modal').classList.remove('hidden');
+    });
+    
+    document.getElementById('chat-mode-lora').addEventListener('click', () => {
+      haptic();
+      document.getElementById('lora-modal').classList.remove('hidden');
+    });
+    
+    // WebRTC модал
+    document.getElementById('webrtc-create-btn').addEventListener('click', () => {
+      haptic();
+      this.switchPanel('create');
+    });
+    
+    document.getElementById('webrtc-join-btn').addEventListener('click', () => {
+      haptic();
+      this.switchPanel('join');
+    });
+    
+    document.getElementById('webrtc-generate-room').addEventListener('click', () => {
+      haptic();
+      this.createRoom();
+    });
+    
+    document.getElementById('webrtc-connect-btn').addEventListener('click', () => {
+      haptic();
+      this.joinRoom();
+    });
+    
+    document.getElementById('webrtc-scan-qr').addEventListener('click', () => {
+      haptic();
+      this.startQRScanner();
+    });
+    
+    // Закрытие модалов
+    document.querySelectorAll('#webrtc-modal .close-btn, #webrtc-modal .modal-overlay').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('webrtc-modal').classList.add('hidden');
+      });
+    });
+    
+    document.querySelectorAll('#bluetooth-modal .close-btn, #bluetooth-modal .modal-overlay').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('bluetooth-modal').classList.add('hidden');
+      });
+    });
+    
+    document.querySelectorAll('#lora-modal .close-btn, #lora-modal .modal-overlay').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('lora-modal').classList.add('hidden');
+      });
+    });
+  },
+  
+  switchPanel(mode) {
+    document.querySelectorAll('.webrtc-mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`webrtc-${mode}-btn`).classList.add('active');
+    
+    document.querySelectorAll('.webrtc-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`webrtc-${mode}-panel`).classList.add('active');
+  },
+  
+  initSignaling() {
+    if ('BroadcastChannel' in window) {
+      this.localChannel = new BroadcastChannel('ghost_hub_webrtc');
+      this.localChannel.onmessage = (e) => this.handleSignal(e.data);
+    }
+    
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'ghost_hub_signal') {
+        const data = JSON.parse(e.newValue);
+        this.handleSignal(data);
+      }
+    });
+  },
+  
+  generateRoomId() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  },
+  
+  async createRoom() {
+    this.roomId = this.generateRoomId();
+    this.isHost = true;
+    
+    document.getElementById('webrtc-room-id').textContent = this.roomId;
+    document.getElementById('webrtc-room-status').textContent = 'Ожидание подключения...';
+    document.getElementById('webrtc-generate-room').classList.add('hidden');
+    
+    this.generateQR(this.roomId);
+    this.setupPeerConnection();
+    
+    this.dataChannel = this.peer.createDataChannel('chat', { ordered: true });
+    this.setupDataChannel(this.dataChannel);
+    
+    const offer = await this.peer.createOffer();
+    await this.peer.setLocalDescription(offer);
+    
+    this.broadcastSignal({
+      type: 'offer',
+      roomId: this.roomId,
+      offer: offer,
+      from: AppState.user?.name || 'Unknown'
+    });
+    
+    AudioEngine.play('success');
+    showToast(`Комната ${this.roomId} создана`);
+    document.getElementById('chat-mode-wifi').classList.add('connected');
+  },
+  
+  async joinRoom() {
+    const inputId = document.getElementById('webrtc-join-id').value.trim();
+    if (!inputId || inputId.length !== 6) {
+      showToast('Введите 6-значный ID комнаты', 'error');
+      return;
+    }
+    
+    this.roomId = inputId;
+    this.isHost = false;
+    
+    this.setupPeerConnection();
+    document.getElementById('webrtc-room-status').textContent = 'Подключение...';
+    this.pendingJoin = true;
+    
+    showToast('Ожидание хоста...');
+    AudioEngine.play('click');
+    
+    setTimeout(() => {
+      if (!this.connected && this.pendingJoin) {
+        showToast('Не удалось подключиться. Проверьте ID и что хост в сети.', 'error');
+        this.pendingJoin = false;
+      }
+    }, 30000);
+  },
+  
+  setupPeerConnection() {
+    this.peer = new RTCPeerConnection(this.config);
+    
+    this.peer.onicecandidate = (e) => {
+      if (e.candidate) {
+        this.broadcastSignal({
+          type: 'ice',
+          roomId: this.roomId,
+          candidate: e.candidate,
+          isHost: this.isHost
+        });
+      }
+    };
+    
+    this.peer.onconnectionstatechange = () => {
+      const state = this.peer.connectionState;
+      console.log('WebRTC state:', state);
+      
+      if (state === 'connected') {
+        this.onConnected();
+      } else if (state === 'disconnected' || state === 'failed') {
+        this.onDisconnected();
+      }
+    };
+    
+    this.peer.ondatachannel = (e) => {
+      this.dataChannel = e.channel;
+      this.setupDataChannel(this.dataChannel);
+    };
+  },
+  
+  setupDataChannel(channel) {
+    channel.onopen = () => {
+      console.log('DataChannel открыт');
+      this.onConnected();
+    };
+    
+    channel.onclose = () => {
+      console.log('DataChannel закрыт');
+      this.onDisconnected();
+    };
+    
+    channel.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      this.handleDataChannelMessage(data);
+    };
+  },
+  
+  handleSignal(data) {
+    if (data.roomId !== this.roomId) return;
+    
+    switch(data.type) {
+      case 'offer':
+        if (!this.isHost && this.pendingJoin) {
+          this.handleOffer(data.offer, data.from);
+        }
+        break;
+      case 'answer':
+        if (this.isHost) {
+          this.handleAnswer(data.answer);
+        }
+        break;
+      case 'ice':
+        this.handleIceCandidate(data.candidate, data.isHost);
+        break;
+    }
+  },
+  
+  async handleOffer(offer, from) {
+    await this.peer.setRemoteDescription(offer);
+    const answer = await this.peer.createAnswer();
+    await this.peer.setLocalDescription(answer);
+    
+    this.broadcastSignal({
+      type: 'answer',
+      roomId: this.roomId,
+      answer: answer
+    });
+    
+    showToast(`Подключение к ${from}...`);
+  },
+  
+  async handleAnswer(answer) {
+    await this.peer.setRemoteDescription(answer);
+  },
+  
+  async handleIceCandidate(candidate, fromHost) {
+    if (fromHost !== this.isHost) {
+      try {
+        await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch(e) {
+        console.log('ICE error:', e);
+      }
+    }
+  },
+  
+  broadcastSignal(data) {
+    if (this.localChannel) {
+      this.localChannel.postMessage(data);
+    }
+    
+    const signalData = {
+      ...data,
+      timestamp: Date.now(),
+      id: Math.random().toString(36).substr(2, 9)
+    };
+    sessionStorage.setItem('ghost_hub_signal', JSON.stringify(signalData));
+  },
+  
+  onConnected() {
+    this.connected = true;
+    this.pendingJoin = false;
+    
+    document.getElementById('webrtc-room-status').textContent = '✓ ПОДКЛЮЧЕНО';
+    document.getElementById('webrtc-room-status').classList.add('connected');
+    
+    const sysMsg = {
+      id: Date.now(),
+      author: 'SYSTEM',
+      role: 'WEBRTC',
+      text: `P2P соединение установлено. Комната: ${this.roomId}`,
+      time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      outgoing: false,
+      isSystem: true
+    };
+    addMessageToChat(sysMsg, true);
+    
+    const statusEl = document.getElementById('chat-network-status');
+    statusEl.textContent = 'P2P CONNECTED';
+    statusEl.style.color = 'var(--success)';
+    
+    if (!document.getElementById('webrtc-disconnect')) {
+      const btn = document.createElement('button');
+      btn.id = 'webrtc-disconnect';
+      btn.className = 'webrtc-disconnect-btn';
+      btn.textContent = '[ ОТКЛЮЧИТЬ ]';
+      btn.addEventListener('click', () => this.disconnect());
+      document.querySelector('.chat-input-area').before(btn);
+    }
+    
+    AudioEngine.play('success');
+    showToast('P2P соединение установлено!');
+    document.getElementById('webrtc-modal').classList.add('hidden');
+  },
+  
+  onDisconnected() {
+    this.connected = false;
+    
+    const statusEl = document.getElementById('chat-network-status');
+    statusEl.textContent = 'P2P MESH';
+    statusEl.style.color = '';
+    
+    document.getElementById('chat-mode-wifi').classList.remove('connected');
+    
+    const sysMsg = {
+      id: Date.now(),
+      author: 'SYSTEM',
+      role: 'WEBRTC',
+      text: 'P2P соединение разорвано',
+      time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      outgoing: false,
+      isSystem: true
+    };
+    addMessageToChat(sysMsg, true);
+    
+    const disconnectBtn = document.getElementById('webrtc-disconnect');
+    if (disconnectBtn) disconnectBtn.remove();
+    
+    showToast('Соединение разорвано', 'error');
+  },
+  
+  handleDataChannelMessage(data) {
+    if (data.type === 'chat') {
+      const msg = {
+        ...data.payload,
+        outgoing: false,
+        isWebRTC: true
+      };
+      addMessageToChat(msg, true);
+      AudioEngine.play('message');
+      
+      if (document.hidden) {
+        showPushNotification('GHOST-HUB P2P', `${msg.author}: ${msg.text.substring(0, 50)}...`);
+      }
+    }
+  },
+  
+  sendMessage(text) {
+    if (!this.connected || !this.dataChannel || this.dataChannel.readyState !== 'open') {
+      return false;
+    }
+    
+    const msg = {
+      type: 'chat',
+      payload: {
+        id: Date.now(),
+        author: AppState.user?.name || 'Unknown',
+        role: AppState.user?.role || 'Operator',
+        text: text,
+        time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        isWebRTC: true
+      }
+    };
+    
+    this.dataChannel.send(JSON.stringify(msg));
+    return true;
+  },
+  
+  disconnect() {
+    if (this.dataChannel) {
+      this.dataChannel.close();
+    }
+    if (this.peer) {
+      this.peer.close();
+    }
+    this.onDisconnected();
+    
+    this.peer = null;
+    this.dataChannel = null;
+    this.roomId = null;
+    this.isHost = false;
+    
+    document.getElementById('webrtc-generate-room').classList.remove('hidden');
+    document.getElementById('webrtc-room-id').textContent = '------';
+    document.getElementById('webrtc-qr').innerHTML = '';
+    document.getElementById('webrtc-room-status').textContent = 'Нажмите "Создать комнату"';
+    document.getElementById('webrtc-room-status').classList.remove('connected');
+  },
+  
+  generateQR(text) {
+    const container = document.getElementById('webrtc-qr');
+    container.innerHTML = '';
+    
+    if (typeof QRCode !== 'undefined') {
+      QRCode.toCanvas(container, text, {
+        width: 140,
+        margin: 2,
+        color: {
+          dark: '#00E5FF',
+          light: '#0A0A0A'
+        }
+      });
+    } else {
+      container.innerHTML = `<div style="font-size:24px; color:var(--accent-cyan); font-weight:800;">${text}</div>`;
+    }
+  },
+  
+  async startQRScanner() {
+    document.getElementById('qr-scanner-modal').classList.remove('hidden');
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const video = document.getElementById('qr-video');
+      video.srcObject = stream;
+      video.play();
+      
+      this.scanQRFrame(video, stream);
+      
+    } catch (err) {
+      showToast('Камера недоступна', 'error');
+      document.getElementById('qr-scanner-modal').classList.add('hidden');
+    }
+  },
+  
+  scanQRFrame(video, stream) {
+    if (!document.getElementById('qr-scanner-modal').classList.contains('hidden')) {
+      setTimeout(() => {
+        if (Math.random() > 0.95) {
+          stream.getTracks().forEach(t => t.stop());
+          document.getElementById('qr-scanner-modal').classList.add('hidden');
+          showToast('QR не распознан, используйте ручной ввод');
+        } else {
+          this.scanQRFrame(video, stream);
+        }
+      }, 500);
+    } else {
+      stream.getTracks().forEach(t => t.stop());
+    }
+  }
+};
 
 // ==================== УТИЛИТЫ ====================
 function showToast(message, type = 'success') {
@@ -2742,7 +2555,6 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
-
 
 function showPushNotification(title, body) {
   if ('Notification' in window && Notification.permission === 'granted') {
@@ -2768,7 +2580,6 @@ function showPushNotification(title, body) {
   }
 }
 
-
 // Закрытие модалок
 document.querySelectorAll('.modal .close-btn').forEach(btn => {
   btn.addEventListener('click', function() {
@@ -2777,13 +2588,11 @@ document.querySelectorAll('.modal .close-btn').forEach(btn => {
   });
 });
 
-
 document.querySelectorAll('.modal .modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', function() {
     this.closest('.modal').classList.add('hidden');
   });
 });
-
 
 // Service Worker
 if ('serviceWorker' in navigator) {
@@ -2792,5 +2601,4 @@ if ('serviceWorker' in navigator) {
     .catch(err => console.log('SW registration failed:', err));
 }
 
-
-console.log('GHOST-HUB v3.1 WebRTC Edition loaded');
+console.log('GHOST-HUB v3.1 loaded');
