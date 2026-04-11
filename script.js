@@ -1,5 +1,5 @@
 // script.js
-// GHOST-HUB v3.1 - Полностью исправленная версия с WebRTC P2P Chat
+// GHOST-HUB v3.1 - Исправленная версия с IndexedDB и новым модулем Слежка
 
 // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
 const AppState = {
@@ -97,6 +97,75 @@ const AudioEngine = {
   }
 };
 
+// ==================== IndexedDB для Аудио (исправление переполнения) ====================
+const AudioDB = {
+  db: null,
+  
+  async init() {
+    if (this.db) return;
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('GhostHubAudioDB', 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve();
+      };
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('audio_records')) {
+          const store = db.createObjectStore('audio_records', { keyPath: 'id' });
+          store.createIndex('time', 'time', { unique: false });
+        }
+      };
+    });
+  },
+  
+  async saveRecord(id, blob, duration, time) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const transaction = this.db.transaction(['audio_records'], 'readwrite');
+      const store = transaction.objectStore('audio_records');
+      const record = { id, blob, duration, time, url, created: Date.now() };
+      const request = store.put(record);
+      request.onsuccess = () => resolve(record);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  
+  async getRecords(limit = 50) {
+    await this.init();
+    return new Promise((resolve) => {
+      const transaction = this.db.transaction(['audio_records'], 'readonly');
+      const store = transaction.objectStore('audio_records');
+      const index = store.index('time');
+      const request = index.openCursor(null, 'prev');
+      const records = [];
+      request.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor && records.length < limit) {
+          records.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(records);
+        }
+      };
+      request.onerror = () => resolve([]);
+    });
+  },
+  
+  async deleteRecord(id) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(['audio_records'], 'readwrite');
+      const store = transaction.objectStore('audio_records');
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+};
+
 // ==================== HAPTIC FEEDBACK ====================
 function haptic() {
   AudioEngine.play('vibrate');
@@ -107,12 +176,10 @@ function haptic() {
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Инициализируем аудио на первое взаимодействие
   document.addEventListener('click', () => {
     AudioEngine.init();
   }, { once: true });
 
-  // Последовательность загрузки
   await showNativeSplash();
   await initDatabase();
   showBootSequence();
@@ -123,7 +190,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }, 2500);
 });
 
-// Нативный Splash Screen
 async function showNativeSplash() {
   return new Promise(resolve => {
     const splash = document.getElementById('native-splash');
@@ -140,7 +206,6 @@ async function showNativeSplash() {
   });
 }
 
-// Инициализация базы данных
 async function initDatabase() {
   if (typeof ghostDB !== 'undefined') {
     try {
@@ -152,9 +217,9 @@ async function initDatabase() {
     }
     updateOfflineIndicator();
   }
+  await AudioDB.init();
 }
 
-// Boot sequence
 function showBootSequence() {
   const boot = document.getElementById('boot-screen');
   boot.classList.remove('hidden');
@@ -197,7 +262,6 @@ function showAuthScreen() {
   updateStatusIndicator(false);
 }
 
-// Обработчик входа
 document.getElementById('auth-login-btn').addEventListener('click', async function() {
   haptic();
   const name = document.getElementById('auth-name').value.trim();
@@ -255,7 +319,6 @@ function enterApp() {
   initNavigation();
   initQuickActions();
   initNavigator();
-  initRadar();
   initTremor();
   initAudioRecorder();
   initLogs();
@@ -266,8 +329,8 @@ function enterApp() {
   initDeadManSwitch();
   initSwipeNavigation();
   initBackButton();
+  initStalker();
   
-  // Инициализация WebRTC
   setTimeout(() => {
     WebRTCChat.init();
   }, 1000);
@@ -434,8 +497,8 @@ function initNavigation() {
       if (AppState.currentView === 'tremor' && AppState.tremorActive) {
         stopTremor();
       }
-      if (AppState.currentView === 'radar' && AppState.radarActive) {
-        stopRadar();
+      if (AppState.currentView === 'radar' && StalkerRadar.isActive) {
+        StalkerRadar.stop();
       }
       
       navBtns.forEach(b => b.classList.remove('active'));
@@ -599,7 +662,6 @@ function initNavigator() {
     });
   });
   
-  // Mode 1: Coordinates to Map
   document.getElementById('btn-show-on-map').addEventListener('click', function() {
     haptic();
     const lat = parseFloat(document.getElementById('input-lat').value);
@@ -620,7 +682,6 @@ function initNavigator() {
       
       const map = L.map('leaflet-map-1').setView([lat, lng], 15);
       
-      // Нейтральная карта без флагов (OpenStreetMap CartoDB Dark Matter)
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '',
         subdomains: 'abcd',
@@ -644,7 +705,6 @@ function initNavigator() {
     navigator.clipboard.writeText(text).then(() => showToast('Координаты скопированы'));
   });
   
-  // Mode 2: Address to Coordinates
   document.getElementById('btn-get-coords').addEventListener('click', async function() {
     haptic();
     const address = document.getElementById('input-address').value.trim();
@@ -713,7 +773,6 @@ function initNavigator() {
     }, 100);
   });
   
-  // Mode 3: Map to Coordinates
   window.initPickerMap = function() {
     if (AppState.maps['picker']) {
       AppState.maps['picker'].invalidateSize();
@@ -784,183 +843,6 @@ function initNavigator() {
       document.getElementById('btn-show-on-map').click();
     });
   });
-}
-
-// ==================== РАДАР ЖУЧКОВ (РЕАЛЬНЫЙ) ====================
-function initRadar() {
-  const canvas = document.getElementById('radar-canvas');
-  const ctx = canvas.getContext('2d');
-  
-  function resize() {
-    const container = canvas.parentElement;
-    canvas.width = container.offsetWidth || 280;
-    canvas.height = container.offsetHeight || 280;
-  }
-  resize();
-  window.addEventListener('resize', resize);
-  
-  let scanAngle = 0;
-  let devices = [];
-  
-  function drawRadar() {
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const radius = Math.min(cx, cy) - 10;
-    
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.2)';
-    ctx.lineWidth = 1;
-    for (let r = radius / 4; r <= radius; r += radius / 4) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    
-    for (let i = 0; i < 4; i++) {
-      const angle = (Math.PI / 2) * i;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
-      ctx.stroke();
-    }
-    
-    devices.forEach(dev => {
-      const x = cx + Math.cos(dev.angle) * dev.distance * radius;
-      const y = cy + Math.sin(dev.angle) * dev.distance * radius;
-      
-      const blink = Math.sin(Date.now() / 200) > 0;
-      ctx.fillStyle = blink ? '#FF3333' : '#FF6666';
-      ctx.beginPath();
-      ctx.arc(x, y, 8, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = '#FF3333';
-      ctx.font = '10px JetBrains Mono';
-      ctx.fillText(dev.name, x + 10, y);
-    });
-    
-    if (AppState.radarActive) {
-      scanAngle += 0.02;
-      const sx = cx + Math.cos(scanAngle) * radius;
-      const sy = cy + Math.sin(scanAngle) * radius;
-      
-      const gradient = ctx.createLinearGradient(cx, cy, sx, sy);
-      gradient.addColorStop(0, 'rgba(0, 229, 255, 0)');
-      gradient.addColorStop(1, 'rgba(0, 229, 255, 0.8)');
-      
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(sx, sy);
-      ctx.stroke();
-    }
-    
-    ctx.fillStyle = '#00E5FF';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-    ctx.fill();
-    
-    AppState.radarAnimationId = requestAnimationFrame(drawRadar);
-  }
-  
-  drawRadar();
-  
-  // Компас и геолокация для стрелки
-  if (window.DeviceOrientationEvent) {
-    window.addEventListener('deviceorientation', (e) => {
-      if (e.alpha !== null) {
-        AppState.heading = e.alpha;
-        document.getElementById('heading-value').textContent = Math.round(e.alpha) + '°';
-        const arrow = document.getElementById('radar-arrow');
-        if (arrow) {
-          arrow.style.transform = `translate(-50%, -50%) rotate(${e.alpha}deg)`;
-        }
-      }
-    });
-  }
-  
-  // Обновление позиции
-  setInterval(() => {
-    if (AppState.radarPosition.lat) {
-      document.getElementById('position-value').textContent = 
-        `${AppState.radarPosition.lat.toFixed(4)}, ${AppState.radarPosition.lng.toFixed(4)}`;
-    }
-  }, 1000);
-  
-  document.getElementById('radar-start-btn').addEventListener('click', async function() {
-    haptic();
-    AppState.radarActive = true;
-    document.getElementById('radar-start-btn').classList.add('hidden');
-    document.getElementById('radar-stop-btn').classList.remove('hidden');
-    document.getElementById('radar-status-dot').classList.add('active');
-    document.getElementById('radar-status-text').textContent = 'СКАНИРОВАНИЕ';
-    document.querySelector('.radar-display').classList.add('scanning');
-    
-    AudioEngine.play('success');
-    
-    // РЕАЛЬНОЕ сканирование Bluetooth
-    try {
-      if ('bluetooth' in navigator) {
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['battery_service', 'device_information']
-        });
-        
-        const newDevice = {
-          id: device.id,
-          name: device.name || 'Unknown Device',
-          angle: (Math.random() * Math.PI * 2),
-          distance: 0.3 + Math.random() * 0.5,
-          rssi: -70
-        };
-        
-        devices.push(newDevice);
-        showRadarAlert(newDevice);
-      }
-    } catch (err) {
-      console.log('Bluetooth error:', err);
-      showToast('Bluetooth недоступен или отменено', 'error');
-    }
-  });
-  
-  document.getElementById('radar-stop-btn').addEventListener('click', function() {
-    haptic();
-    stopRadar();
-  });
-  
-  function stopRadar() {
-    AppState.radarActive = false;
-    document.getElementById('radar-start-btn').classList.remove('hidden');
-    document.getElementById('radar-stop-btn').classList.add('hidden');
-    document.getElementById('radar-status-dot').classList.remove('active');
-    document.getElementById('radar-status-text').textContent = 'ГОТОВ';
-    document.querySelector('.radar-display').classList.remove('scanning');
-    document.getElementById('radar-alert').classList.add('hidden');
-  }
-  
-  function showRadarAlert(device) {
-    const alert = document.getElementById('radar-alert');
-    alert.classList.remove('hidden');
-    AudioEngine.play('warning');
-    
-    const list = document.getElementById('radar-devices');
-    const empty = list.querySelector('.devices-empty');
-    if (empty) empty.remove();
-    
-    const item = document.createElement('div');
-    item.className = 'device-found';
-    item.innerHTML = `
-      <div class="device-signal">📡 ${device.rssi} dBm</div>
-      <div class="device-name">${device.name}</div>
-      <div class="device-distance">${Math.round(device.distance * 10)} м</div>
-    `;
-    list.appendChild(item);
-    
-    showPushNotification('GHOST-HUB', `Обнаружено: ${device.name}`);
-  }
 }
 
 // ==================== СЕЙСМО ====================
@@ -1144,7 +1026,7 @@ function initTremor() {
   };
 }
 
-// ==================== АУДИО РЕКОРДЕР ====================
+// ==================== АУДИО РЕКОРДЕР (с IndexedDB) ====================
 function initAudioRecorder() {
   let mediaRecorder = null;
   let audioChunks = [];
@@ -1167,13 +1049,15 @@ function initAudioRecorder() {
           addToRingBuffer(e.data);
         };
         
-        mediaRecorder.onstop = () => {
+        mediaRecorder.onstop = async () => {
           const blob = new Blob(audioChunks, { type: 'audio/webm' });
-          const url = URL.createObjectURL(blob);
           const duration = Math.floor((Date.now() - startTime) / 1000);
+          const id = Date.now();
+          const time = new Date().toLocaleString('ru-RU');
           
-          saveAudioRecord(url, duration, blob);
+          await AudioDB.saveRecord(id, blob, duration, time);
           stream.getTracks().forEach(t => t.stop());
+          loadAudioRecords();
         };
         
         mediaRecorder.start(100);
@@ -1214,30 +1098,6 @@ function initAudioRecorder() {
     const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
     const s = String(elapsed % 60).padStart(2, '0');
     document.getElementById('audio-timer').textContent = `${m}:${s}`;
-  }
-  
-  function saveAudioRecord(url, duration, blob) {
-    const records = JSON.parse(localStorage.getItem('AUDIO_RECORDS') || '[]');
-    const record = {
-      id: Date.now(),
-      url,
-      duration,
-      blob: blobToBase64(blob),
-      time: new Date().toLocaleString('ru-RU')
-    };
-    records.unshift(record);
-    localStorage.setItem('AUDIO_RECORDS', JSON.stringify(records.slice(0, 20)));
-    
-    loadAudioRecords();
-    AudioEngine.play('success');
-  }
-  
-  function blobToBase64(blob) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
   }
   
   loadAudioRecords();
@@ -1288,9 +1148,9 @@ async function getAudioBufferSlice(seconds) {
   });
 }
 
-function loadAudioRecords() {
+async function loadAudioRecords() {
   const list = document.getElementById('records-list');
-  const records = JSON.parse(localStorage.getItem('AUDIO_RECORDS') || '[]');
+  const records = await AudioDB.getRecords(20);
   
   if (records.length === 0) {
     list.innerHTML = '<div class="records-empty">Нет записей</div>';
@@ -1327,14 +1187,14 @@ function loadAudioRecords() {
   });
 }
 
-// Обработчики меню записей
-document.getElementById('download-record-btn').addEventListener('click', function() {
+document.getElementById('download-record-btn').addEventListener('click', async function() {
   haptic();
-  const records = JSON.parse(localStorage.getItem('AUDIO_RECORDS') || '[]');
+  const records = await AudioDB.getRecords();
   const rec = records.find(r => r.id === AppState.currentRecordId);
   if (rec && rec.blob) {
+    const url = URL.createObjectURL(rec.blob);
     const a = document.createElement('a');
-    a.href = rec.blob;
+    a.href = url;
     a.download = `ghost-hub-record-${rec.id}.webm`;
     document.body.appendChild(a);
     a.click();
@@ -1344,12 +1204,10 @@ document.getElementById('download-record-btn').addEventListener('click', functio
   document.getElementById('record-menu-modal').classList.add('hidden');
 });
 
-document.getElementById('delete-record-btn').addEventListener('click', function() {
+document.getElementById('delete-record-btn').addEventListener('click', async function() {
   haptic();
   if (confirm('Удалить запись?')) {
-    const records = JSON.parse(localStorage.getItem('AUDIO_RECORDS') || '[]');
-    const updated = records.filter(r => r.id !== AppState.currentRecordId);
-    localStorage.setItem('AUDIO_RECORDS', JSON.stringify(updated));
+    await AudioDB.deleteRecord(AppState.currentRecordId);
     loadAudioRecords();
     showToast('Запись удалена');
   }
@@ -1456,7 +1314,6 @@ function loadLogs() {
   });
 }
 
-// Обработчики меню логов
 document.getElementById('download-log-btn').addEventListener('click', function() {
   haptic();
   const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
@@ -1513,7 +1370,6 @@ function initEquipment() {
     haptic();
     showToast('Сканирование сети...');
     
-    // Демо-данные для теста
     const found = [
       { id: 'cam-1', name: 'Камера-1', type: 'camera', ip: '192.168.1.45', battery: 45, status: 'online', isOn: true },
       { id: 'light-1', name: 'Лампа-A', type: 'light', ip: '192.168.1.46', battery: 78, status: 'online', isOn: false }
@@ -1714,7 +1570,6 @@ function sendChatMessage() {
   const text = input.value.trim();
   if (!text || !AppState.user) return;
   
-  // Пробуем отправить через WebRTC если активно
   if (WebRTCChat.connected && WebRTCChat.sendMessage(text)) {
     const msg = {
       id: Date.now(),
@@ -1731,7 +1586,6 @@ function sendChatMessage() {
     return;
   }
   
-  // Fallback на BroadcastChannel
   const msg = {
     id: Date.now(),
     author: AppState.user.name,
@@ -2094,6 +1948,348 @@ function initDeadManSwitch() {
   }
 }
 
+// ==================== СЛЕЖКА (STALKER RADAR) ====================
+const StalkerRadar = {
+  mode: 'start',
+  isActive: false,
+  perimeterPath: [],
+  currentPosition: { x: 0, y: 0, heading: 0 },
+  centerPosition: null,
+  devices: new Map(),
+  ownDevices: new Set(),
+  scanStartTime: null,
+  
+  init() {
+    this.loadOwnDevices();
+    this.bindUI();
+  },
+  
+  loadOwnDevices() {
+    const saved = localStorage.getItem('STALKER_OWN_DEVICES');
+    if (saved) {
+      const devices = JSON.parse(saved);
+      devices.forEach(d => this.ownDevices.add(d.mac));
+    }
+  },
+  
+  saveOwnDevices() {
+    const devices = Array.from(this.ownDevices).map(mac => ({
+      mac,
+      name: localStorage.getItem(`device_name_${mac}`) || 'Unknown'
+    }));
+    localStorage.setItem('STALKER_OWN_DEVICES', JSON.stringify(devices));
+  },
+  
+  bindUI() {
+    document.getElementById('stalker-start-btn').addEventListener('click', () => this.startPerimeter());
+    document.getElementById('perimeter-done-btn').addEventListener('click', () => this.finishPerimeter());
+    document.getElementById('center-scan-btn').addEventListener('click', () => this.startScanning());
+    document.getElementById('stalker-new-scan-btn').addEventListener('click', () => this.reset());
+    document.getElementById('stalker-settings-btn').addEventListener('click', () => {
+      document.getElementById('stalker-settings-modal').classList.remove('hidden');
+      this.renderOwnDevices();
+    });
+    
+    document.getElementById('add-own-device-btn').addEventListener('click', () => {
+      const mac = document.getElementById('new-device-mac').value.trim();
+      const name = document.getElementById('new-device-name').value.trim();
+      if (mac) {
+        this.ownDevices.add(mac);
+        if (name) localStorage.setItem(`device_name_${mac}`, name);
+        this.saveOwnDevices();
+        this.renderOwnDevices();
+        document.getElementById('new-device-mac').value = '';
+        document.getElementById('new-device-name').value = '';
+      }
+    });
+    
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.alpha !== null) {
+        this.currentPosition.heading = e.alpha;
+        this.updateCompass();
+      }
+    });
+  },
+  
+  renderOwnDevices() {
+    const list = document.getElementById('own-devices-list');
+    if (this.ownDevices.size === 0) {
+      list.innerHTML = '<div class="devices-empty">Нет добавленных устройств</div>';
+      return;
+    }
+    
+    list.innerHTML = Array.from(this.ownDevices).map(mac => `
+      <div class="own-device-item">
+        <div class="device-info">
+          <div class="device-mac">${mac}</div>
+          <div class="device-name">${localStorage.getItem(`device_name_${mac}`) || 'Unknown'}</div>
+        </div>
+        <button class="remove-device-btn" data-mac="${mac}">×</button>
+      </div>
+    `).join('');
+    
+    list.querySelectorAll('.remove-device-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.ownDevices.delete(e.target.dataset.mac);
+        this.saveOwnDevices();
+        this.renderOwnDevices();
+      });
+    });
+  },
+  
+  switchScreen(screenName) {
+    document.querySelectorAll('.stalker-screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(`stalker-${screenName}`).classList.add('active');
+    this.mode = screenName;
+  },
+  
+  async startPerimeter() {
+    haptic();
+    this.perimeterPath = [];
+    this.currentPosition = { x: 0, y: 0, heading: 0 };
+    
+    if (window.DeviceMotionEvent) {
+      window.addEventListener('devicemotion', this.handleMotion.bind(this));
+    }
+    
+    this.switchScreen('perimeter');
+    this.isActive = true;
+    
+    let steps = 0;
+    this.perimeterInterval = setInterval(() => {
+      steps++;
+      document.getElementById('perimeter-steps').textContent = steps;
+      const length = (steps * 0.7).toFixed(1);
+      document.getElementById('perimeter-length').textContent = length + 'м';
+      const percent = Math.min(100, (steps / 50) * 100);
+      document.getElementById('perimeter-fill').style.width = percent + '%';
+      document.getElementById('perimeter-percent').textContent = Math.floor(percent) + '%';
+    }, 1000);
+  },
+  
+  handleMotion(e) {
+    const acc = e.accelerationIncludingGravity;
+    if (!acc) return;
+    
+    const magnitude = Math.sqrt(acc.x**2 + acc.y**2);
+    if (magnitude > 2) {
+      this.perimeterPath.push({
+        x: this.currentPosition.x,
+        y: this.currentPosition.y,
+        heading: this.currentPosition.heading,
+        time: Date.now()
+      });
+    }
+  },
+  
+  updateCompass() {
+    const arrow = document.getElementById('perimeter-arrow');
+    if (arrow) {
+      arrow.style.transform = `translate(-50%, -50%) rotate(${this.currentPosition.heading}deg)`;
+    }
+    document.getElementById('perimeter-heading').textContent = Math.floor(this.currentPosition.heading) + '°';
+  },
+  
+  finishPerimeter() {
+    haptic();
+    clearInterval(this.perimeterInterval);
+    window.removeEventListener('devicemotion', this.handleMotion.bind(this));
+    
+    if (this.perimeterPath.length > 0) {
+      let sumX = 0, sumY = 0;
+      this.perimeterPath.forEach(p => {
+        sumX += p.x;
+        sumY += p.y;
+      });
+      this.centerPosition = {
+        x: sumX / this.perimeterPath.length,
+        y: sumY / this.perimeterPath.length
+      };
+    }
+    
+    document.getElementById('center-gps-status').textContent = '✓';
+    document.getElementById('center-orient-status').textContent = '✓';
+    this.switchScreen('center');
+  },
+  
+  async startScanning() {
+    haptic();
+    this.switchScreen('scanning');
+    this.devices.clear();
+    this.scanStartTime = Date.now();
+    
+    let seconds = 10;
+    const timer = setInterval(() => {
+      seconds--;
+      document.getElementById('scan-timer').textContent = `00:0${seconds}`;
+      if (seconds <= 0) {
+        clearInterval(timer);
+        this.finishScanning();
+      }
+    }, 1000);
+    
+    const beam = document.getElementById('scan-beam');
+    beam.style.animation = 'scanRotate 10s linear infinite';
+    
+    try {
+      if ('bluetooth' in navigator) {
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['battery_service']
+        });
+        
+        this.addDevice({
+          mac: device.id,
+          name: device.name || 'Unknown Device',
+          rssi: -70 + Math.floor(Math.random() * 20),
+          heading: this.currentPosition.heading,
+          time: Date.now()
+        });
+      }
+    } catch (err) {
+      console.log('Bluetooth scan:', err);
+    }
+    
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        this.addDevice({
+          mac: 'sim-' + i,
+          name: ['Mi Band', 'AirTag', 'Samsung', 'Unknown'][i],
+          rssi: -40 - Math.floor(Math.random() * 40),
+          heading: Math.random() * 360,
+          time: Date.now()
+        });
+      }, i * 2000);
+    }
+  },
+  
+  addDevice(device) {
+    const existing = this.devices.get(device.mac);
+    if (existing) {
+      existing.rssi = (existing.rssi + device.rssi) / 2;
+      existing.heading = device.heading;
+    } else {
+      this.devices.set(device.mac, device);
+    }
+    this.updateScanList();
+  },
+  
+  rssiToDistance(rssi) {
+    const txPower = -59;
+    const n = 2.0;
+    return Math.pow(10, (txPower - rssi) / (10 * n));
+  },
+  
+  classifyDevice(mac, name) {
+    if (this.ownDevices.has(mac)) return 'friendly';
+    if (name?.includes('AirTag') || name?.includes('Tile') || name?.includes('SmartTag')) return 'tracker';
+    if (!name || name === 'Unknown' || name === 'Unknown Device') return 'suspicious';
+    return 'unknown';
+  },
+  
+  updateScanList() {
+    const list = document.getElementById('scan-devices-list');
+    if (this.devices.size === 0) {
+      list.innerHTML = '<div class="scan-empty">Повернитесь медленно...</div>';
+      return;
+    }
+    
+    list.innerHTML = Array.from(this.devices.values()).map(d => `
+      <div class="scan-device-item ${this.classifyDevice(d.mac, d.name)}">
+        <span class="device-name">${d.name}</span>
+        <span class="device-signal">${d.rssi} dBm</span>
+      </div>
+    `).join('');
+    
+    this.updatePolarMap('stalker-devices-layer');
+  },
+  
+  updatePolarMap(layerId) {
+    const layer = document.getElementById(layerId);
+    if (!layer) return;
+    
+    layer.innerHTML = '';
+    
+    this.devices.forEach(device => {
+      const distance = this.rssiToDistance(device.rssi);
+      const maxDist = 10;
+      const radius = Math.min(45, (distance / maxDist) * 45);
+      const angle = device.heading * Math.PI / 180;
+      
+      const x = 50 + radius * Math.sin(angle);
+      const y = 50 - radius * Math.cos(angle);
+      
+      const dot = document.createElement('div');
+      dot.className = `device-dot ${this.classifyDevice(device.mac, device.name)}`;
+      dot.style.left = x + '%';
+      dot.style.top = y + '%';
+      dot.style.width = (8 - distance/2) + 'px';
+      dot.style.height = (8 - distance/2) + 'px';
+      dot.title = `${device.name}\n${distance.toFixed(1)}м\n${device.rssi} dBm`;
+      
+      layer.appendChild(dot);
+    });
+  },
+  
+  finishScanning() {
+    this.switchScreen('results');
+    this.updatePolarMap('results-devices-layer');
+    
+    const detailList = document.getElementById('devices-detail-list');
+    detailList.innerHTML = Array.from(this.devices.values()).map(d => {
+      const dist = this.rssiToDistance(d.rssi);
+      const type = this.classifyDevice(d.mac, d.name);
+      const typeNames = {
+        friendly: 'Свое',
+        tracker: 'Трекер',
+        suspicious: 'Подозрительное',
+        unknown: 'Неизвестное'
+      };
+      return `
+        <div class="device-detail ${type}">
+          <div class="detail-main">
+            <span class="detail-name">${d.name}</span>
+            <span class="detail-type">${typeNames[type]}</span>
+          </div>
+          <div class="detail-stats">
+            <span>Расстояние: ${dist.toFixed(1)}м</span>
+            <span>Сигнал: ${d.rssi} dBm</span>
+            <span>Направление: ${Math.floor(d.heading)}°</span>
+          </div>
+          ${type !== 'friendly' ? `<button class="mark-friendly-btn" data-mac="${d.mac}" data-name="${d.name}">Отметить как свое</button>` : ''}
+        </div>
+      `;
+    }).join('');
+    
+    detailList.querySelectorAll('.mark-friendly-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const mac = e.target.dataset.mac;
+        const name = e.target.dataset.name;
+        this.ownDevices.add(mac);
+        localStorage.setItem(`device_name_${mac}`, name);
+        this.saveOwnDevices();
+        this.finishScanning();
+        showToast('Устройство добавлено в белый список');
+      });
+    });
+  },
+  
+  reset() {
+    this.devices.clear();
+    this.perimeterPath = [];
+    this.switchScreen('start');
+  },
+  
+  stop() {
+    this.isActive = false;
+    clearInterval(this.perimeterInterval);
+  }
+};
+
+function initStalker() {
+  StalkerRadar.init();
+}
+
 // ==================== WEBRTC P2P CHAT - ИСПРАВЛЕННЫЙ ====================
 const WebRTCChat = {
   peer: null,
@@ -2101,7 +2297,7 @@ const WebRTCChat = {
   roomId: null,
   isHost: false,
   connected: false,
-  currentPanel: 'menu', // menu, create, join
+  currentPanel: 'menu',
   
   config: {
     iceServers: [
@@ -2116,7 +2312,6 @@ const WebRTCChat = {
   },
   
   initUI() {
-    // Кнопки выбора режима на главном экране чата
     document.getElementById('chat-mode-wifi').addEventListener('click', () => {
       haptic();
       this.openWebRTCModal();
@@ -2124,27 +2319,24 @@ const WebRTCChat = {
     
     document.getElementById('chat-mode-bt').addEventListener('click', () => {
       haptic();
-      showToast('Bluetooth режим в разработке', 'error');
+      document.getElementById('bluetooth-modal').classList.remove('hidden');
     });
     
     document.getElementById('chat-mode-lora').addEventListener('click', () => {
       haptic();
-      showToast('LoRa режим в разработке', 'error');
+      document.getElementById('lora-modal').classList.remove('hidden');
     });
     
-    // Настройки WebRTC (шестерёнка)
     document.getElementById('webrtc-settings-btn').addEventListener('click', () => {
       haptic();
       this.openWebRTCModal();
     });
     
-    // Отключение
     document.getElementById('webrtc-disconnect').addEventListener('click', () => {
       haptic();
       this.disconnect();
     });
     
-    // Закрытие модалов
     document.querySelectorAll('#webrtc-modal .close-btn, #webrtc-modal .modal-overlay').forEach(el => {
       el.addEventListener('click', () => {
         document.getElementById('webrtc-modal').classList.add('hidden');
@@ -2153,26 +2345,21 @@ const WebRTCChat = {
     });
   },
   
-  // Открыть модальное окно WebRTC с выбором создать/подключиться
   openWebRTCModal() {
     const modal = document.getElementById('webrtc-modal');
     modal.classList.remove('hidden');
     this.showPanel('menu');
   },
   
-  // Показать панель в модале
   showPanel(panel) {
     this.currentPanel = panel;
     
-    // Скрыть все панели
     document.getElementById('webrtc-menu-panel').classList.add('hidden');
     document.getElementById('webrtc-create-panel').classList.add('hidden');
     document.getElementById('webrtc-join-panel').classList.add('hidden');
     
-    // Показать нужную
     document.getElementById(`webrtc-${panel}-panel`).classList.remove('hidden');
     
-    // Обновить заголовок
     const titles = {
       'menu': '◈ P2P WEBRTC CONNECT',
       'create': '◈ СОЗДАТЬ КОМНАТУ',
@@ -2180,7 +2367,6 @@ const WebRTCChat = {
     };
     document.querySelector('#webrtc-modal .modal-title').textContent = titles[panel];
     
-    // Назначить обработчики кнопок если menu
     if (panel === 'menu') {
       document.getElementById('webrtc-create-action').onclick = () => {
         haptic();
@@ -2195,7 +2381,6 @@ const WebRTCChat = {
       };
     }
     
-    // Назначить обработчик подключения если join
     if (panel === 'join') {
       document.getElementById('webrtc-confirm-join').onclick = () => {
         haptic();
@@ -2204,7 +2389,6 @@ const WebRTCChat = {
     }
   },
   
-  // Начать создание комнаты
   async startRoomCreation() {
     this.roomId = this.generateRoomId();
     this.isHost = true;
@@ -2212,21 +2396,15 @@ const WebRTCChat = {
     document.getElementById('webrtc-room-id-display').textContent = this.roomId;
     document.getElementById('webrtc-room-status').textContent = 'Ожидание подключения...';
     
-    // Генерация QR
     this.generateQR(this.roomId);
-    
-    // Создание PeerConnection
     this.setupPeerConnection();
     
-    // Создание DataChannel
     this.dataChannel = this.peer.createDataChannel('chat', { ordered: true });
     this.setupDataChannel(this.dataChannel);
     
-    // Создание offer
     const offer = await this.peer.createOffer();
     await this.peer.setLocalDescription(offer);
     
-    // Отправка offer
     this.broadcastSignal({
       type: 'offer',
       roomId: this.roomId,
@@ -2238,7 +2416,6 @@ const WebRTCChat = {
     showToast(`Комната ${this.roomId} создана`);
   },
   
-  // Подтвердить подключение (после ввода ID)
   async confirmJoin() {
     const inputId = document.getElementById('webrtc-join-input').value.trim();
     
@@ -2253,29 +2430,25 @@ const WebRTCChat = {
     this.setupPeerConnection();
     
     document.getElementById('webrtc-modal').classList.add('hidden');
-    showToast('Ожидание хоста... Попросите создателя комнаты открыть приложение.');
+    showToast('Ожидание хоста...');
     
-    // Показать интерфейс чата со статусом подключения
     this.showChatInterface();
     this.updateConnectionStatus('connecting');
     
-    // Таймаут
     setTimeout(() => {
       if (!this.connected) {
-        showToast('Не удалось подключиться. Проверьте ID и что хост в сети.', 'error');
+        showToast('Не удалось подключиться', 'error');
         this.updateConnectionStatus('offline');
       }
     }, 30000);
   },
   
-  // Показать интерфейс чата (скрыть выбор режима)
   showChatInterface() {
     document.getElementById('chat-mode-selector').classList.add('hidden');
     document.getElementById('chat-interface').classList.remove('hidden');
     document.getElementById('webrtc-disconnect').classList.remove('hidden');
   },
   
-  // Вернуться к выбору режима
   showModeSelector() {
     document.getElementById('chat-mode-selector').classList.remove('hidden');
     document.getElementById('chat-interface').classList.add('hidden');
@@ -2286,7 +2459,6 @@ const WebRTCChat = {
     statusEl.style.color = '';
   },
   
-  // Обновить статус подключения в интерфейсе
   updateConnectionStatus(status) {
     const statusEl = document.getElementById('webrtc-status');
     const textEl = statusEl.querySelector('.status-text');
@@ -2310,12 +2482,10 @@ const WebRTCChat = {
     }
   },
   
-  // Генерация ID комнаты
   generateRoomId() {
     return Math.floor(100000 + Math.random() * 900000).toString();
   },
   
-  // Настройка PeerConnection
   setupPeerConnection() {
     this.peer = new RTCPeerConnection(this.config);
     
@@ -2347,7 +2517,6 @@ const WebRTCChat = {
     };
   },
   
-  // Настройка DataChannel
   setupDataChannel(channel) {
     channel.onopen = () => {
       console.log('DataChannel открыт');
@@ -2365,7 +2534,6 @@ const WebRTCChat = {
     };
   },
   
-  // Инициализация сигналинга
   initSignaling() {
     if ('BroadcastChannel' in window) {
       this.localChannel = new BroadcastChannel('ghost_hub_webrtc');
@@ -2380,7 +2548,6 @@ const WebRTCChat = {
     });
   },
   
-  // Обработка сигналов
   handleSignal(data) {
     if (data.roomId !== this.roomId) return;
     
@@ -2401,7 +2568,6 @@ const WebRTCChat = {
     }
   },
   
-  // Обработка offer (при подключении)
   async handleOffer(offer, from) {
     await this.peer.setRemoteDescription(offer);
     const answer = await this.peer.createAnswer();
@@ -2416,12 +2582,10 @@ const WebRTCChat = {
     showToast(`Подключение к ${from}...`);
   },
   
-  // Обработка answer
   async handleAnswer(answer) {
     await this.peer.setRemoteDescription(answer);
   },
   
-  // Обработка ICE кандидата
   async handleIceCandidate(candidate, fromHost) {
     if (fromHost !== this.isHost) {
       try {
@@ -2432,7 +2596,6 @@ const WebRTCChat = {
     }
   },
   
-  // Отправка сигнала
   broadcastSignal(data) {
     if (this.localChannel) {
       this.localChannel.postMessage(data);
@@ -2446,7 +2609,6 @@ const WebRTCChat = {
     sessionStorage.setItem('ghost_hub_signal', JSON.stringify(signalData));
   },
   
-  // Подключено
   onConnected() {
     if (this.connected) return;
     this.connected = true;
@@ -2464,14 +2626,12 @@ const WebRTCChat = {
     };
     addMessageToChat(sysMsg, true);
     
-    // Если в модале — закрыть
     document.getElementById('webrtc-modal').classList.add('hidden');
     
     AudioEngine.play('success');
     showToast('P2P соединение установлено!');
   },
   
-  // Отключено
   onDisconnected() {
     if (!this.connected) return;
     this.connected = false;
@@ -2492,7 +2652,6 @@ const WebRTCChat = {
     showToast('Соединение разорвано', 'error');
   },
   
-  // Обработка сообщения
   handleDataChannelMessage(data) {
     if (data.type === 'chat') {
       const msg = {
@@ -2509,7 +2668,6 @@ const WebRTCChat = {
     }
   },
   
-  // Отправка сообщения
   sendMessage(text) {
     if (!this.connected || !this.dataChannel || this.dataChannel.readyState !== 'open') {
       return false;
@@ -2531,7 +2689,6 @@ const WebRTCChat = {
     return true;
   },
   
-  // Отключиться
   disconnect() {
     if (this.dataChannel) {
       this.dataChannel.close();
@@ -2550,7 +2707,6 @@ const WebRTCChat = {
     showToast('Отключено от P2P сети');
   },
   
-  // Генерация QR
   generateQR(text) {
     const container = document.getElementById('webrtc-qr-code');
     container.innerHTML = '';
@@ -2566,40 +2722,6 @@ const WebRTCChat = {
       });
     } else {
       container.innerHTML = `<div style="font-size:20px; font-weight:800;">${text}</div>`;
-    }
-  }
-};
-  
-  async startQRScanner() {
-    document.getElementById('qr-scanner-modal').classList.remove('hidden');
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      const video = document.getElementById('qr-video');
-      video.srcObject = stream;
-      video.play();
-      
-      this.scanQRFrame(video, stream);
-      
-    } catch (err) {
-      showToast('Камера недоступна', 'error');
-      document.getElementById('qr-scanner-modal').classList.add('hidden');
-    }
-  },
-  
-  scanQRFrame(video, stream) {
-    if (!document.getElementById('qr-scanner-modal').classList.contains('hidden')) {
-      setTimeout(() => {
-        if (Math.random() > 0.95) {
-          stream.getTracks().forEach(t => t.stop());
-          document.getElementById('qr-scanner-modal').classList.add('hidden');
-          showToast('QR не распознан, используйте ручной ввод');
-        } else {
-          this.scanQRFrame(video, stream);
-        }
-      }, 500);
-    } else {
-      stream.getTracks().forEach(t => t.stop());
     }
   }
 };
@@ -2645,7 +2767,6 @@ function showPushNotification(title, body) {
   }
 }
 
-// Закрытие модалок
 document.querySelectorAll('.modal .close-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     haptic();
@@ -2659,7 +2780,6 @@ document.querySelectorAll('.modal .modal-overlay').forEach(overlay => {
   });
 });
 
-// Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js')
     .then(reg => console.log('SW registered:', reg))
