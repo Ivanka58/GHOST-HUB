@@ -81,7 +81,7 @@
             <div class="boot-line">Loading NAVIGATOR MODULE...</div>
             <div class="boot-line">Loading PULSE MONITOR...</div>
             <div class="boot-line">Loading EQUIPMENT CONTROL...</div>
-            <div class="boot-line">Loading BUG DETECTOR...</div>
+            <div class="boot-line">Loading STALKER PROTOCOL...</div>
             <div class="boot-line">[OK] All systems operational</div>
             <div class="boot-line blink">ABSOLUTE CONTROL ENABLED</div>
         </div>
@@ -192,8 +192,8 @@
                 <span class="nav-label">НАВИГАТОР</span>
             </button>
             <button class="nav-btn" data-view="radar" disabled>
-                <span class="nav-icon">📡</span>
-                <span class="nav-label">ЖУЧКИ</span>
+                <span class="nav-icon">🎯</span>
+                <span class="nav-label">СЛЕЖКА</span>
             </button>
             <button class="nav-btn" data-view="tremor" disabled>
                 <span class="nav-icon">≃</span>
@@ -401,44 +401,220 @@
                 </div>
             </div>
 
-            <!-- BUG DETECTOR VIEW -->
+            <!-- STALKER VIEW (RADAR) -->
             <div id="radar-view" class="view-section">
-                <div class="radar-header">
-                    <h2 class="section-title">// BUG DETECTOR</h2>
-                    <div class="radar-status">
-                        <span id="radar-status-dot" class="status-dot"></span>
-                        <span id="radar-status-text">ГОТОВ</span>
+                <div class="stalker-container">
+                    <!-- Экран 1: Старт -->
+                    <div id="stalker-start" class="stalker-screen active">
+                        <div class="stalker-header">
+                            <h2 class="section-title">// СЛЕЖКА</h2>
+                            <div class="stalker-status">
+                                <span id="stalker-status-dot" class="status-dot"></span>
+                                <span id="stalker-status-text">ГОТОВ</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stalker-intro">
+                            <div class="intro-icon">🎯</div>
+                            <h3>ПОИСК УСТРОЙСТВ</h3>
+                            <p class="intro-text">Обнаружение Bluetooth-устройств в помещении с построением полярной карты</p>
+                            
+                            <div class="intro-steps">
+                                <div class="step">
+                                    <span class="step-num">1</span>
+                                    <span class="step-text">Обойдите периметр комнаты</span>
+                                </div>
+                                <div class="step">
+                                    <span class="step-num">2</span>
+                                    <span class="step-text">Встаньте в центр</span>
+                                </div>
+                                <div class="step">
+                                    <span class="step-num">3</span>
+                                    <span class="step-text">Повернитесь 360°</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="stalker-controls">
+                            <button id="stalker-start-btn" class="stalker-btn primary">
+                                <span>◈ НАЧАТЬ ОБХОД</span>
+                            </button>
+                            <button id="stalker-settings-btn" class="stalker-btn secondary">
+                                <span>⚙ МОИ УСТРОЙСТВА</span>
+                            </button>
+                        </div>
+                        
+                        <div class="stalker-hint">
+                            Требуется Bluetooth и доступ к датчикам движения
+                        </div>
                     </div>
-                </div>
 
-                <div class="radar-controls">
-                    <button id="radar-start-btn" class="radar-btn primary">
-                        <span>◈ НАЧАТЬ СКАНИРОВАНИЕ</span>
-                    </button>
-                    <button id="radar-stop-btn" class="radar-btn hidden">
-                        <span>⏹ ОСТАНОВИТЬ</span>
-                    </button>
-                </div>
+                    <!-- Экран 2: Обход периметра -->
+                    <div id="stalker-perimeter" class="stalker-screen hidden">
+                        <div class="stalker-header">
+                            <h2 class="section-title">// ОБХОД ПЕРИМЕТРА</h2>
+                            <div class="perimeter-progress">
+                                <div class="progress-bar">
+                                    <div id="perimeter-fill" class="progress-fill"></div>
+                                </div>
+                                <span id="perimeter-percent">0%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="perimeter-display">
+                            <div class="compass-ring">
+                                <div class="compass-arrow" id="perimeter-arrow">▲</div>
+                                <div class="compass-labels">
+                                    <span class="label-n">N</span>
+                                    <span class="label-e">E</span>
+                                    <span class="label-s">S</span>
+                                    <span class="label-w">W</span>
+                                </div>
+                            </div>
+                            
+                            <div class="perimeter-stats">
+                                <div class="stat">
+                                    <span class="stat-label">ШАГИ</span>
+                                    <span id="perimeter-steps" class="stat-value">0</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">КУРС</span>
+                                    <span id="perimeter-heading" class="stat-value">0°</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">ДЛИНА</span>
+                                    <span id="perimeter-length" class="stat-value">0м</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="perimeter-instruction">
+                            <span class="instruction-icon">👣</span>
+                            <span class="instruction-text">Идите вдоль стен по часовой стрелке</span>
+                        </div>
+                        
+                        <button id="perimeter-done-btn" class="stalker-btn primary">
+                            <span>✓ ЗАВЕРШИТЬ ОБХОД</span>
+                        </button>
+                    </div>
 
-                <div class="radar-display">
-                    <canvas id="radar-canvas"></canvas>
-                    <div class="radar-center">⌖</div>
-                    <div class="radar-sweep"></div>
-                    <div class="radar-arrow" id="radar-arrow">▲</div>
-                </div>
+                    <!-- Экран 3: Центр -->
+                    <div id="stalker-center" class="stalker-screen hidden">
+                        <div class="stalker-header">
+                            <h2 class="section-title">// ЦЕНТР КОМНАТЫ</h2>
+                        </div>
+                        
+                        <div class="center-display">
+                            <div class="center-icon">📍</div>
+                            <div class="center-text">ВСТАНЬТЕ В ЦЕНТР ПОМЕЩЕНИЯ</div>
+                            <div class="center-subtext">Приготовьтесь медленно повернуться</div>
+                            
+                            <div class="center-readiness">
+                                <div class="readiness-item">
+                                    <span id="center-gps-status" class="status-indicator">⏳</span>
+                                    <span>GPS: фиксация...</span>
+                                </div>
+                                <div class="readiness-item">
+                                    <span id="center-orient-status" class="status-indicator">⏳</span>
+                                    <span>Компас: калибровка...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button id="center-scan-btn" class="stalker-btn primary">
+                            <span>◈ НАЧАТЬ СКАНИРОВАНИЕ</span>
+                        </button>
+                    </div>
 
-                <div class="radar-info">
-                    <div class="radar-heading">КУРС: <span id="heading-value">0°</span></div>
-                    <div class="radar-position">POS: <span id="position-value">--</span></div>
-                </div>
+                    <!-- Экран 4: Сканирование -->
+                    <div id="stalker-scanning" class="stalker-screen hidden">
+                        <div class="stalker-header">
+                            <h2 class="section-title">// СКАНИРОВАНИЕ</h2>
+                            <div class="scan-status">
+                                <span class="scan-timer" id="scan-timer">00:10</span>
+                            </div>
+                        </div>
+                        
+                        <div class="scanning-display">
+                            <div class="polar-container">
+                                <div class="polar-grid">
+                                    <div class="sector-lines"></div>
+                                    <div class="distance-ring ring-10"></div>
+                                    <div class="distance-ring ring-5"></div>
+                                    <div class="distance-ring ring-2"></div>
+                                    <div class="scan-beam" id="scan-beam"></div>
+                                    <div class="center-dot">🎯</div>
+                                    <div id="stalker-devices-layer" class="devices-layer"></div>
+                                </div>
+                                <div class="polar-labels">
+                                    <span class="sector-label" style="--angle: 0deg">N</span>
+                                    <span class="sector-label" style="--angle: 45deg">NE</span>
+                                    <span class="sector-label" style="--angle: 90deg">E</span>
+                                    <span class="sector-label" style="--angle: 135deg">SE</span>
+                                    <span class="sector-label" style="--angle: 180deg">S</span>
+                                    <span class="sector-label" style="--angle: 225deg">SW</span>
+                                    <span class="sector-label" style="--angle: 270deg">W</span>
+                                    <span class="sector-label" style="--angle: 315deg">NW</span>
+                                </div>
+                            </div>
+                            
+                            <div class="scan-devices-list" id="scan-devices-list">
+                                <div class="scan-empty">Повернитесь медленно...</div>
+                            </div>
+                        </div>
+                    </div>
 
-                <div class="radar-alert hidden" id="radar-alert">
-                    <span class="alert-icon">🚨</span>
-                    <span class="alert-text">УСТРОЙСТВО НАЙДЕНО!</span>
-                </div>
-
-                <div class="radar-devices" id="radar-devices">
-                    <div class="devices-empty">Нет обнаруженных устройств</div>
+                    <!-- Экран 5: Результаты -->
+                    <div id="stalker-results" class="stalker-screen hidden">
+                        <div class="stalker-header">
+                            <h2 class="section-title">// КАРТА УСТРОЙСТВ</h2>
+                            <div class="results-actions">
+                                <button id="stalker-new-scan-btn" class="stalker-btn small">🔄 НОВЫЙ</button>
+                                <button id="stalker-filter-btn" class="stalker-btn small">👁 ФИЛЬТР</button>
+                            </div>
+                        </div>
+                        
+                        <div class="results-display">
+                            <div class="polar-container large">
+                                <div class="polar-grid" id="results-grid">
+                                    <div class="sector-lines"></div>
+                                    <div class="distance-ring ring-10"></div>
+                                    <div class="distance-ring ring-5"></div>
+                                    <div class="distance-ring ring-2"></div>
+                                    <div class="center-dot">🎯</div>
+                                    <div id="results-devices-layer" class="devices-layer"></div>
+                                </div>
+                                <div class="distance-labels">
+                                    <span class="dist-label" style="--radius: 20%">2м</span>
+                                    <span class="dist-label" style="--radius: 50%">5м</span>
+                                    <span class="dist-label" style="--radius: 80%">10м</span>
+                                </div>
+                            </div>
+                            
+                            <div class="results-legend">
+                                <div class="legend-item">
+                                    <span class="legend-dot friendly"></span>
+                                    <span>Свои</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-dot unknown"></span>
+                                    <span>Неизвестные</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-dot tracker"></span>
+                                    <span>Трекеры</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-dot suspicious"></span>
+                                    <span>Подозрительные</span>
+                                </div>
+                            </div>
+                            
+                            <div class="devices-detail-list" id="devices-detail-list">
+                                <!-- Список устройств сюда -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -987,6 +1163,32 @@
                     </div>
                 </div>
                 <div class="qr-hint">Наведите камеру на QR-код комнаты</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stalker Settings Modal -->
+    <div id="stalker-settings-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">◈ МОИ УСТРОЙСТВА</span>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="stalker-settings">
+                    <p class="settings-hint">Устройства в белом списке не отображаются как "чужие" на карте</p>
+                    <div id="own-devices-list" class="own-devices-list">
+                        <div class="devices-empty">Нет добавленных устройств</div>
+                    </div>
+                    <div class="add-device-form">
+                        <input type="text" id="new-device-mac" class="auth-input" placeholder="MAC адрес (например: AA:BB:CC:DD:EE:FF)">
+                        <input type="text" id="new-device-name" class="auth-input" placeholder="Название (например: Мой телефон)">
+                        <button id="add-own-device-btn" class="control-btn start">
+                            [ ДОБАВИТЬ ]
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
