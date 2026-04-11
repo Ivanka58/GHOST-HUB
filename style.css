@@ -1211,158 +1211,6 @@ body.night-mode {
     color: var(--text-secondary);
 }
 
-/* Bug Detector (Radar) */
-.radar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.radar-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 10px;
-}
-
-.radar-controls {
-    margin-bottom: 16px;
-}
-
-.radar-btn {
-    width: 100%;
-    padding: 16px;
-    border: 2px solid;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.radar-btn.primary {
-    border-color: var(--accent-cyan);
-    background: var(--bg-primary);
-    color: var(--accent-cyan);
-}
-
-.radar-btn.primary:active {
-    background: var(--accent-cyan);
-    color: var(--bg-primary);
-}
-
-.radar-btn.hidden {
-    display: none;
-}
-
-.radar-display {
-    position: relative;
-    width: 100%;
-    height: 280px;
-    background: radial-gradient(circle, #001100 0%, #000000 100%);
-    border: 2px solid var(--stealth-gray);
-    border-radius: 50%;
-    margin-bottom: 16px;
-    overflow: hidden;
-}
-
-#radar-canvas {
-    width: 100%;
-    height: 100%;
-}
-
-.radar-center {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 24px;
-    color: var(--accent-cyan);
-    text-shadow: 0 0 10px var(--accent-cyan);
-}
-
-.radar-sweep {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 50%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent-cyan));
-    transform-origin: left center;
-    animation: radar-sweep 2s linear infinite;
-    opacity: 0;
-}
-
-.radar-display.scanning .radar-sweep {
-    opacity: 1;
-}
-
-@keyframes radar-sweep {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-.radar-arrow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 20px;
-    color: var(--accent-orange);
-    text-shadow: 0 0 10px var(--accent-orange);
-    z-index: 10;
-    transition: transform 0.1s;
-}
-
-.radar-info {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 12px;
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-
-.radar-heading, .radar-position {
-    background: var(--bg-secondary);
-    padding: 8px;
-    border-radius: 4px;
-    text-align: center;
-}
-
-.radar-alert {
-    background: var(--danger);
-    color: var(--bg-primary);
-    padding: 12px;
-    border-radius: 6px;
-    text-align: center;
-    margin-bottom: 12px;
-    animation: pulse 0.5s infinite;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.radar-alert.hidden {
-    display: none;
-}
-
-.radar-devices {
-    background: var(--bg-secondary);
-    border-radius: 6px;
-    padding: 12px;
-}
-
-.devices-empty {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 12px;
-    padding: 20px;
-}
-
 /* Tremor View */
 .tremor-header {
     display: flex;
@@ -2677,7 +2525,7 @@ body.night-mode {
 }
 
 /* ============================================
-   ИСПРАВЛЕННЫЕ СТИЛИ ЧАТА - НОВЫЕ/ИЗМЕНЁННЫЕ
+   СТИЛИ ДЛЯ ЧАТА И WEBRTC (уже были в вашем файле)
    ============================================ */
 
 /* Mode Selector - Главный экран чата */
@@ -3022,4 +2870,700 @@ body.night-mode {
     display: none !important;
 }
 
-/* Coming Soon Modals - уже есть, оставляем */
+/* ==================== STALKER (СЛЕЖКА) STYLES ==================== */
+
+.stalker-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0a;
+}
+
+.stalker-screen {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  padding: 15px;
+  animation: fadeInUp 0.3s ease;
+}
+
+.stalker-screen.active {
+  display: flex;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.stalker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+}
+
+.stalker-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #888;
+}
+
+/* Экран старта */
+.stalker-intro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+}
+
+.intro-icon {
+  font-size: 48px;
+}
+
+.intro-text {
+  color: #aaa;
+  font-size: 14px;
+  max-width: 260px;
+  line-height: 1.4;
+}
+
+.intro-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #1a1a1a;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #FF8C00;
+}
+
+.step-num {
+  width: 24px;
+  height: 24px;
+  background: #FF8C00;
+  color: #000;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.stalker-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.stalker-btn {
+  padding: 15px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stalker-btn.primary {
+  background: #FF8C00;
+  color: #000;
+  border-color: #FF8C00;
+  font-weight: 700;
+}
+
+.stalker-btn.secondary {
+  border-color: #666;
+  color: #aaa;
+}
+
+.stalker-btn:active {
+  transform: scale(0.98);
+}
+
+.stalker-hint {
+  text-align: center;
+  color: #666;
+  font-size: 11px;
+  margin-top: 15px;
+}
+
+/* Экран периметра */
+.perimeter-display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.compass-ring {
+  width: 200px;
+  height: 200px;
+  border: 2px solid #333;
+  border-radius: 50%;
+  position: relative;
+  margin-bottom: 30px;
+}
+
+.compass-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 24px;
+  color: #FF8C00;
+  transform-origin: center;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s;
+}
+
+.compass-labels {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+}
+
+.compass-labels span {
+  position: absolute;
+  font-size: 14px;
+  color: #666;
+  font-weight: 700;
+}
+
+.label-n { top: 5px; left: 50%; transform: translateX(-50%); }
+.label-e { right: 5px; top: 50%; transform: translateY(-50%); }
+.label-s { bottom: 5px; left: 50%; transform: translateX(-50%); }
+.label-w { left: 5px; top: 50%; transform: translateY(-50%); }
+
+.perimeter-stats {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  text-align: center;
+  background: #1a1a1a;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.stat-label {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #FF8C00;
+}
+
+.perimeter-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 150px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #333;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #FF8C00;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.perimeter-instruction {
+  background: #1a1a1a;
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+  margin: 20px 0;
+  border: 1px solid #333;
+}
+
+.instruction-icon {
+  font-size: 24px;
+  margin-right: 10px;
+}
+
+/* Экран центра */
+.center-display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.center-icon {
+  font-size: 48px;
+}
+
+.center-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FF8C00;
+  text-align: center;
+}
+
+.center-subtext {
+  color: #888;
+  font-size: 14px;
+}
+
+.center-readiness {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+  width: 100%;
+  max-width: 250px;
+}
+
+.readiness-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  border: 1px solid #333;
+}
+
+.status-indicator {
+  color: #FF8C00;
+  font-weight: 700;
+}
+
+/* Экран сканирования */
+.scanning-display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.polar-container {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 0 auto;
+  background: radial-gradient(circle, #0f0f0f 0%, #0a0a0a 100%);
+  border: 2px solid #333;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.polar-container.large {
+  width: 300px;
+  height: 300px;
+}
+
+.polar-grid {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: 
+    repeating-conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 30deg,
+      rgba(255, 140, 0, 0.03) 30deg,
+      rgba(255, 140, 0, 0.03) 60deg
+    );
+}
+
+.sector-lines {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: 
+    conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 88deg,
+      rgba(255, 140, 0, 0.1) 90deg,
+      transparent 92deg,
+      transparent 178deg,
+      rgba(255, 140, 0, 0.1) 180deg,
+      transparent 182deg,
+      transparent 268deg,
+      rgba(255, 140, 0, 0.1) 270deg,
+      transparent 272deg,
+      transparent 358deg,
+      rgba(255, 140, 0, 0.1) 360deg
+    );
+}
+
+.distance-ring {
+  position: absolute;
+  border: 1px solid rgba(255, 140, 0, 0.2);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ring-2 { width: 40%; height: 40%; }
+.ring-5 { width: 70%; height: 70%; }
+.ring-10 { width: 100%; height: 100%; }
+
+.center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  z-index: 10;
+}
+
+.scan-beam {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,140,0,0.8), transparent);
+  transform-origin: left center;
+  transform: rotate(0deg);
+  z-index: 5;
+}
+
+@keyframes scanRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.devices-layer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+}
+
+.device-dot {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.3s;
+  cursor: pointer;
+  box-shadow: 0 0 10px currentColor;
+  animation: dotPulse 2s infinite;
+}
+
+.device-dot.friendly {
+  background: #00E5FF;
+  color: #00E5FF;
+}
+
+.device-dot.unknown {
+  background: #888;
+  color: #888;
+}
+
+.device-dot.tracker {
+  background: #FFD700;
+  color: #FFD700;
+}
+
+.device-dot.suspicious {
+  background: #FF3333;
+  color: #FF3333;
+  animation: dotPulse 1s infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.polar-labels {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.sector-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 10px;
+  color: #666;
+  font-weight: 700;
+  transform: rotate(var(--angle)) translateY(-140px) rotate(calc(var(--angle) * -1));
+  transform-origin: center;
+}
+
+.distance-labels {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.dist-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 10px;
+  color: #666;
+  transform: translate(-50%, -50%) translateY(calc(var(--radius) * -1));
+}
+
+.scan-devices-list {
+  max-height: 150px;
+  overflow-y: auto;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.scan-device-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  border-bottom: 1px solid #333;
+  font-size: 12px;
+}
+
+.scan-device-item:last-child {
+  border-bottom: none;
+}
+
+.scan-device-item.friendly {
+  color: #00E5FF;
+}
+
+.scan-device-item.tracker {
+  color: #FFD700;
+}
+
+.scan-device-item.suspicious {
+  color: #FF3333;
+  font-weight: 700;
+}
+
+/* Экран результатов */
+.results-display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  overflow-y: auto;
+}
+
+.results-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.stalker-btn.small {
+  padding: 8px 15px;
+  font-size: 12px;
+  flex: 1;
+}
+
+.results-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  background: #1a1a1a;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legend-dot.friendly { background: #00E5FF; }
+.legend-dot.unknown { background: #888; }
+.legend-dot.tracker { background: #FFD700; }
+.legend-dot.suspicious { background: #FF3333; }
+
+.devices-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.device-detail {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 12px;
+  border-left: 3px solid #888;
+}
+
+.device-detail.friendly { border-left-color: #00E5FF; }
+.device-detail.tracker { border-left-color: #FFD700; }
+.device-detail.suspicious { border-left-color: #FF3333; }
+
+.detail-main {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.detail-name {
+  font-weight: 700;
+  color: #fff;
+}
+
+.detail-type {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #333;
+}
+
+.detail-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.mark-friendly-btn {
+  width: 100%;
+  padding: 8px;
+  background: #00E5FF22;
+  border: 1px solid #00E5FF;
+  color: #00E5FF;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Модальное окно настроек */
+.stalker-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.settings-hint {
+  color: #888;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.own-devices-list {
+  max-height: 200px;
+  overflow-y: auto;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.own-device-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #1a1a1a;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.device-mac {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #00E5FF;
+}
+
+.device-name {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.remove-device-btn {
+  background: #FF333322;
+  border: 1px solid #FF3333;
+  color: #FF3333;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-device-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Адаптация для маленьких экранов */
+@media (max-height: 700px) {
+  .polar-container {
+    width: 220px;
+    height: 220px;
+  }
+  
+  .compass-ring {
+    width: 150px;
+    height: 150px;
+  }
+}
