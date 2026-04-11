@@ -1962,6 +1962,8 @@ const StalkerRadar = {
   init() {
     this.loadOwnDevices();
     this.bindUI();
+    // При старте показываем начальный экран
+    this.switchScreen('start');
   },
   
   loadOwnDevices() {
@@ -2038,8 +2040,22 @@ const StalkerRadar = {
   },
   
   switchScreen(screenName) {
-    document.querySelectorAll('.stalker-screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(`stalker-${screenName}`).classList.add('active');
+    // Скрываем ВСЕ экраны stalker (добавляем hidden)
+    document.querySelectorAll('.stalker-screen').forEach(s => {
+      s.classList.remove('active');
+      s.classList.add('hidden');
+    });
+    
+    // Показываем нужный (убираем hidden, добавляем active)
+    const target = document.getElementById(`stalker-${screenName}`);
+    if (target) {
+      target.classList.remove('hidden');
+      target.classList.add('active');
+      console.log(`[Stalker] Screen: ${screenName}`);
+    } else {
+      console.error(`[Stalker] Screen not found: stalker-${screenName}`);
+    }
+    
     this.mode = screenName;
   },
   
@@ -2058,12 +2074,15 @@ const StalkerRadar = {
     let steps = 0;
     this.perimeterInterval = setInterval(() => {
       steps++;
-      document.getElementById('perimeter-steps').textContent = steps;
-      const length = (steps * 0.7).toFixed(1);
-      document.getElementById('perimeter-length').textContent = length + 'м';
-      const percent = Math.min(100, (steps / 50) * 100);
-      document.getElementById('perimeter-fill').style.width = percent + '%';
-      document.getElementById('perimeter-percent').textContent = Math.floor(percent) + '%';
+      const stepsEl = document.getElementById('perimeter-steps');
+      const lengthEl = document.getElementById('perimeter-length');
+      const fillEl = document.getElementById('perimeter-fill');
+      const percentEl = document.getElementById('perimeter-percent');
+      
+      if (stepsEl) stepsEl.textContent = steps;
+      if (lengthEl) lengthEl.textContent = (steps * 0.7).toFixed(1) + 'м';
+      if (fillEl) fillEl.style.width = Math.min(100, (steps / 50) * 100) + '%';
+      if (percentEl) percentEl.textContent = Math.min(100, Math.floor((steps / 50) * 100)) + '%';
     }, 1000);
   },
   
@@ -2084,10 +2103,14 @@ const StalkerRadar = {
   
   updateCompass() {
     const arrow = document.getElementById('perimeter-arrow');
+    const headingEl = document.getElementById('perimeter-heading');
+    
     if (arrow) {
       arrow.style.transform = `translate(-50%, -50%) rotate(${this.currentPosition.heading}deg)`;
     }
-    document.getElementById('perimeter-heading').textContent = Math.floor(this.currentPosition.heading) + '°';
+    if (headingEl) {
+      headingEl.textContent = Math.floor(this.currentPosition.heading) + '°';
+    }
   },
   
   finishPerimeter() {
@@ -2107,8 +2130,12 @@ const StalkerRadar = {
       };
     }
     
-    document.getElementById('center-gps-status').textContent = '✓';
-    document.getElementById('center-orient-status').textContent = '✓';
+    // Обновляем статус готовности
+    const gpsStatus = document.getElementById('center-gps-status');
+    const orientStatus = document.getElementById('center-orient-status');
+    if (gpsStatus) gpsStatus.textContent = '✓';
+    if (orientStatus) orientStatus.textContent = '✓';
+    
     this.switchScreen('center');
   },
   
@@ -2117,20 +2144,27 @@ const StalkerRadar = {
     this.switchScreen('scanning');
     this.devices.clear();
     this.scanStartTime = Date.now();
-    
+
+    // Запускаем таймер
     let seconds = 10;
-    const timer = setInterval(() => {
+    const timerEl = document.getElementById('scan-timer');
+    
+    const countdown = setInterval(() => {
       seconds--;
-      document.getElementById('scan-timer').textContent = `00:0${seconds}`;
+      if (timerEl) timerEl.textContent = `00:0${seconds}`;
       if (seconds <= 0) {
-        clearInterval(timer);
+        clearInterval(countdown);
         this.finishScanning();
       }
     }, 1000);
-    
+
+    // Анимация луча
     const beam = document.getElementById('scan-beam');
-    beam.style.animation = 'scanRotate 10s linear infinite';
-    
+    if (beam) {
+      beam.style.animation = 'scanRotate 10s linear infinite';
+    }
+
+    // Пытаемся найти реальные устройства (Bluetooth)
     try {
       if ('bluetooth' in navigator) {
         const device = await navigator.bluetooth.requestDevice({
@@ -2147,19 +2181,23 @@ const StalkerRadar = {
         });
       }
     } catch (err) {
-      console.log('Bluetooth scan:', err);
+      console.log('Bluetooth not available:', err);
+      // Продолжаем работу без Bluetooth
     }
     
+    // Добавляем симуляционные устройства
     for (let i = 0; i < 5; i++) {
       setTimeout(() => {
-        this.addDevice({
-          mac: 'sim-' + i,
-          name: ['Mi Band', 'AirTag', 'Samsung', 'Unknown'][i],
-          rssi: -40 - Math.floor(Math.random() * 40),
-          heading: Math.random() * 360,
-          time: Date.now()
-        });
-      }, i * 2000);
+        if (this.mode === 'scanning') {
+          this.addDevice({
+            mac: 'sim-' + i,
+            name: ['Mi Band', 'AirTag', 'Samsung', 'Unknown', 'iPhone'][i],
+            rssi: -40 - Math.floor(Math.random() * 40),
+            heading: Math.random() * 360,
+            time: Date.now()
+          });
+        }
+      }, i * 2000 + 1000); // Начинаем через 1 секунду
     }
   },
   
@@ -2189,6 +2227,8 @@ const StalkerRadar = {
   
   updateScanList() {
     const list = document.getElementById('scan-devices-list');
+    if (!list) return;
+    
     if (this.devices.size === 0) {
       list.innerHTML = '<div class="scan-empty">Повернитесь медленно...</div>';
       return;
@@ -2223,8 +2263,8 @@ const StalkerRadar = {
       dot.className = `device-dot ${this.classifyDevice(device.mac, device.name)}`;
       dot.style.left = x + '%';
       dot.style.top = y + '%';
-      dot.style.width = (8 - distance/2) + 'px';
-      dot.style.height = (8 - distance/2) + 'px';
+      dot.style.width = Math.max(4, 8 - distance/2) + 'px';
+      dot.style.height = Math.max(4, 8 - distance/2) + 'px';
       dot.title = `${device.name}\n${distance.toFixed(1)}м\n${device.rssi} dBm`;
       
       layer.appendChild(dot);
@@ -2236,6 +2276,8 @@ const StalkerRadar = {
     this.updatePolarMap('results-devices-layer');
     
     const detailList = document.getElementById('devices-detail-list');
+    if (!detailList) return;
+    
     detailList.innerHTML = Array.from(this.devices.values()).map(d => {
       const dist = this.rssiToDistance(d.rssi);
       const type = this.classifyDevice(d.mac, d.name);
@@ -2268,7 +2310,7 @@ const StalkerRadar = {
         this.ownDevices.add(mac);
         localStorage.setItem(`device_name_${mac}`, name);
         this.saveOwnDevices();
-        this.finishScanning();
+        this.finishScanning(); // Перерисовываем
         showToast('Устройство добавлено в белый список');
       });
     });
@@ -2285,10 +2327,6 @@ const StalkerRadar = {
     clearInterval(this.perimeterInterval);
   }
 };
-
-function initStalker() {
-  StalkerRadar.init();
-}
 
 // ==================== WEBRTC P2P CHAT - ИСПРАВЛЕННЫЙ ====================
 const WebRTCChat = {
