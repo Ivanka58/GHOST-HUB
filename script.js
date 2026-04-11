@@ -1,7 +1,6 @@
-// script.js
-// GHOST-HUB v3.1 - Исправленная версия с IndexedDB и новым модулем Слежка
+// script.js — ПОЛНЫЙ ИСПРАВЛЕННЫЙ ФАЙЛ
+// GHOST-HUB v3.1
 
-// ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
 const AppState = {
   user: null,
   isOnline: false,
@@ -33,7 +32,6 @@ const AppState = {
   radarPosition: { lat: 0, lng: 0 }
 };
 
-// ==================== AUDIO ENGINE ====================
 const AudioEngine = {
   ctx: null,
   
@@ -97,7 +95,6 @@ const AudioEngine = {
   }
 };
 
-// ==================== IndexedDB для Аудио (исправление переполнения) ====================
 const AudioDB = {
   db: null,
   
@@ -166,7 +163,6 @@ const AudioDB = {
   }
 };
 
-// ==================== HAPTIC FEEDBACK ====================
 function haptic() {
   AudioEngine.play('vibrate');
   if (navigator.vibrate) {
@@ -174,7 +170,6 @@ function haptic() {
   }
 }
 
-// ==================== ИНИЦИАЛИЗАЦИЯ ====================
 document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('click', () => {
     AudioEngine.init();
@@ -196,11 +191,11 @@ async function showNativeSplash() {
     const progress = document.querySelector('.splash-progress');
     
     setTimeout(() => {
-      progress.style.width = '100%';
+      if (progress) progress.style.width = '100%';
     }, 100);
     
     setTimeout(() => {
-      splash.classList.add('hidden');
+      if (splash) splash.classList.add('hidden');
       resolve();
     }, 2000);
   });
@@ -222,19 +217,21 @@ async function initDatabase() {
 
 function showBootSequence() {
   const boot = document.getElementById('boot-screen');
-  boot.classList.remove('hidden');
+  if (boot) boot.classList.remove('hidden');
 }
 
 function hideBootScreen() {
   const boot = document.getElementById('boot-screen');
-  boot.style.opacity = '0';
-  setTimeout(() => {
-    boot.classList.add('hidden');
-    document.getElementById('main-interface').classList.remove('hidden');
-  }, 300);
+  if (boot) {
+    boot.style.opacity = '0';
+    setTimeout(() => {
+      boot.classList.add('hidden');
+      const main = document.getElementById('main-interface');
+      if (main) main.classList.remove('hidden');
+    }, 300);
+  }
 }
 
-// ==================== АУТЕНТИФИКАЦИЯ ====================
 function checkAuth() {
   const savedUser = localStorage.getItem('GHOST_HUB_USER');
   
@@ -252,12 +249,17 @@ function checkAuth() {
 
 function showAuthScreen() {
   const authScreen = document.getElementById('auth-screen');
-  authScreen.classList.remove('hidden');
+  if (authScreen) authScreen.classList.remove('hidden');
   
-  document.getElementById('app-header').classList.add('hidden');
-  document.getElementById('quick-actions').classList.add('hidden');
-  document.getElementById('mobile-nav').classList.add('hidden');
-  document.getElementById('content-area').classList.add('hidden');
+  const header = document.getElementById('app-header');
+  const actions = document.getElementById('quick-actions');
+  const nav = document.getElementById('mobile-nav');
+  const content = document.getElementById('content-area');
+  
+  if (header) header.classList.add('hidden');
+  if (actions) actions.classList.add('hidden');
+  if (nav) nav.classList.add('hidden');
+  if (content) content.classList.add('hidden');
   
   updateStatusIndicator(false);
 }
@@ -300,12 +302,18 @@ document.getElementById('auth-login-btn').addEventListener('click', async functi
 });
 
 function enterApp() {
-  document.getElementById('auth-screen').classList.add('hidden');
+  const authScreen = document.getElementById('auth-screen');
+  if (authScreen) authScreen.classList.add('hidden');
   
-  document.getElementById('app-header').classList.remove('hidden');
-  document.getElementById('quick-actions').classList.remove('hidden');
-  document.getElementById('mobile-nav').classList.remove('hidden');
-  document.getElementById('content-area').classList.remove('hidden');
+  const header = document.getElementById('app-header');
+  const actions = document.getElementById('quick-actions');
+  const nav = document.getElementById('mobile-nav');
+  const content = document.getElementById('content-area');
+  
+  if (header) header.classList.remove('hidden');
+  if (actions) actions.classList.remove('hidden');
+  if (nav) nav.classList.remove('hidden');
+  if (content) content.classList.remove('hidden');
   
   document.querySelectorAll('.action-btn, .nav-btn').forEach(btn => {
     btn.disabled = false;
@@ -329,7 +337,12 @@ function enterApp() {
   initDeadManSwitch();
   initSwipeNavigation();
   initBackButton();
-  initStalker();
+  
+  try {
+    initStalker();
+  } catch (e) {
+    console.error('Error init stalker:', e);
+  }
   
   setTimeout(() => {
     WebRTCChat.init();
@@ -341,6 +354,8 @@ function enterApp() {
 function updateStatusIndicator(online) {
   const indicator = document.getElementById('status-indicator');
   const text = document.getElementById('status-text');
+  
+  if (!indicator || !text) return;
   
   if (online) {
     indicator.classList.remove('offline');
@@ -359,14 +374,15 @@ function updateStatusIndicator(online) {
 
 function updateOfflineIndicator() {
   const indicator = document.getElementById('offline-indicator');
-  if (AppState.isOnline) {
-    indicator.classList.add('hidden');
-  } else {
-    indicator.classList.remove('hidden');
+  if (indicator) {
+    if (AppState.isOnline) {
+      indicator.classList.add('hidden');
+    } else {
+      indicator.classList.remove('hidden');
+    }
   }
 }
 
-// ==================== РАЗРЕШЕНИЯ ====================
 async function requestPermissions() {
   if ('geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition(
@@ -389,7 +405,6 @@ async function requestPermissions() {
   }
 }
 
-// ==================== ЧАСЫ И GPS ====================
 function initClock() {
   function update() {
     const now = new Date();
@@ -397,7 +412,8 @@ function initClock() {
     const h = String(msk.getHours()).padStart(2, '0');
     const m = String(msk.getMinutes()).padStart(2, '0');
     const s = String(msk.getSeconds()).padStart(2, '0');
-    document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+    const clock = document.getElementById('clock');
+    if (clock) clock.textContent = `${h}:${m}:${s}`;
   }
   update();
   setInterval(update, 1000);
@@ -405,6 +421,7 @@ function initClock() {
 
 function initGeolocation() {
   const gpsEl = document.getElementById('gps');
+  if (!gpsEl) return;
   
   if ('geolocation' in navigator) {
     navigator.geolocation.watchPosition(
@@ -435,12 +452,12 @@ function simulateGPS() {
   setInterval(() => {
     baseLat += (Math.random() - 0.5) * 0.0002;
     baseLng += (Math.random() - 0.5) * 0.0002;
-    document.getElementById('gps').textContent = `${baseLat.toFixed(4)}°N ${baseLng.toFixed(4)}°E`;
+    const gps = document.getElementById('gps');
+    if (gps) gps.textContent = `${baseLat.toFixed(4)}°N ${baseLng.toFixed(4)}°E`;
     AppState.radarPosition = { lat: baseLat, lng: baseLng };
   }, 3000);
 }
 
-// ==================== СТАТУС КОМАНДЫ ====================
 function initTeamStatus() {
   loadTeamMembers();
   setInterval(updateTeamDisplay, 5000);
@@ -455,6 +472,8 @@ async function loadTeamMembers() {
 function updateTeamDisplay() {
   const grid = document.getElementById('team-grid');
   const countEl = document.getElementById('nodes-count');
+  
+  if (!grid || !countEl) return;
   
   if (AppState.teamMembers.length === 0) {
     grid.innerHTML = `
@@ -484,7 +503,6 @@ function updateTeamDisplay() {
   countEl.textContent = `${AppState.teamMembers.length + 1} (ВЫ)`;
 }
 
-// ==================== НАВИГАЦИЯ ====================
 function initNavigation() {
   const navBtns = document.querySelectorAll('.nav-btn');
   const views = document.querySelectorAll('.view-section');
@@ -496,9 +514,6 @@ function initNavigation() {
       
       if (AppState.currentView === 'tremor' && AppState.tremorActive) {
         stopTremor();
-      }
-      if (AppState.currentView === 'radar' && StalkerRadar.isActive) {
-        StalkerRadar.stop();
       }
       
       navBtns.forEach(b => b.classList.remove('active'));
@@ -524,7 +539,6 @@ function initNavigation() {
   });
 }
 
-// ==================== SWIPE & BACK BUTTON ====================
 function initSwipeNavigation() {
   let touchStartX = 0;
   let touchStartY = 0;
@@ -580,70 +594,91 @@ function initBackButton() {
   });
 }
 
-// ==================== QUICK ACTIONS ====================
 function initQuickActions() {
-  document.getElementById('incident-btn').addEventListener('click', async function() {
-    haptic();
-    AudioEngine.play('alert');
-    
-    const now = new Date();
-    const time = now.toLocaleTimeString('ru-RU', { hour12: false });
-    const gps = document.getElementById('gps').textContent;
-    
-    const audioData = await getAudioBufferSlice(30);
-    
-    const logData = {
-      time,
-      gps,
-      lat: AppState.radarPosition.lat || 55.7558,
-      lng: AppState.radarPosition.lng || 37.6173,
-      emf: (Math.random() * 5).toFixed(2) + ' μT',
-      noise: Math.floor(Math.random() * 40 + 30) + ' dB',
-      audioData,
-      audioDuration: 30
-    };
-    
-    const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
-    logs.unshift({ ...logData, id: Date.now() });
-    localStorage.setItem('INCIDENT_LOGS', JSON.stringify(logs.slice(0, 50)));
-    
-    document.getElementById('incident-time').textContent = time;
-    document.getElementById('incident-coords').textContent = gps;
-    document.getElementById('incident-emf').textContent = logData.emf;
-    document.getElementById('incident-noise').textContent = logData.noise;
-    
-    const modal = document.getElementById('incident-modal');
-    modal.classList.remove('hidden');
-    
-    setTimeout(() => modal.classList.add('hidden'), 3000);
-    
-    loadLogs();
-    AudioEngine.play('success');
-  });
+  const incidentBtn = document.getElementById('incident-btn');
+  const nightBtn = document.getElementById('night-ops-btn');
+  const voiceBtn = document.getElementById('voice-cmd-btn');
+  const deadBtn = document.getElementById('deadman-btn');
   
-  document.getElementById('night-ops-btn').addEventListener('click', function() {
-    haptic();
-    const overlay = document.getElementById('night-ops-overlay');
-    const btn = document.getElementById('night-ops-btn');
-    const isHidden = overlay.classList.contains('hidden');
-    
-    overlay.classList.toggle('hidden', !isHidden);
-    btn.classList.toggle('active', isHidden);
-    document.body.classList.toggle('night-mode', isHidden);
-  });
+  if (incidentBtn) {
+    incidentBtn.addEventListener('click', async function() {
+      haptic();
+      AudioEngine.play('alert');
+      
+      const now = new Date();
+      const time = now.toLocaleTimeString('ru-RU', { hour12: false });
+      const gps = document.getElementById('gps')?.textContent || '--.---- --.----';
+      
+      const audioData = await getAudioBufferSlice(30);
+      
+      const logData = {
+        time,
+        gps,
+        lat: AppState.radarPosition.lat || 55.7558,
+        lng: AppState.radarPosition.lng || 37.6173,
+        emf: (Math.random() * 5).toFixed(2) + ' μT',
+        noise: Math.floor(Math.random() * 40 + 30) + ' dB',
+        audioData,
+        audioDuration: 30
+      };
+      
+      const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
+      logs.unshift({ ...logData, id: Date.now() });
+      localStorage.setItem('INCIDENT_LOGS', JSON.stringify(logs.slice(0, 50)));
+      
+      const timeEl = document.getElementById('incident-time');
+      const coordsEl = document.getElementById('incident-coords');
+      const emfEl = document.getElementById('incident-emf');
+      const noiseEl = document.getElementById('incident-noise');
+      
+      if (timeEl) timeEl.textContent = time;
+      if (coordsEl) coordsEl.textContent = gps;
+      if (emfEl) emfEl.textContent = logData.emf;
+      if (noiseEl) noiseEl.textContent = logData.noise;
+      
+      const modal = document.getElementById('incident-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.add('hidden'), 3000);
+      }
+      
+      loadLogs();
+      AudioEngine.play('success');
+    });
+  }
   
-  document.getElementById('voice-cmd-btn').addEventListener('click', function() {
-    haptic();
-    document.getElementById('voice-help-modal').classList.remove('hidden');
-  });
+  if (nightBtn) {
+    nightBtn.addEventListener('click', function() {
+      haptic();
+      const overlay = document.getElementById('night-ops-overlay');
+      const btn = document.getElementById('night-ops-btn');
+      if (!overlay || !btn) return;
+      
+      const isHidden = overlay.classList.contains('hidden');
+      
+      overlay.classList.toggle('hidden', !isHidden);
+      btn.classList.toggle('active', isHidden);
+      document.body.classList.toggle('night-mode', isHidden);
+    });
+  }
   
-  document.getElementById('deadman-btn').addEventListener('click', function() {
-    haptic();
-    document.getElementById('deadman-modal').classList.remove('hidden');
-  });
+  if (voiceBtn) {
+    voiceBtn.addEventListener('click', function() {
+      haptic();
+      const modal = document.getElementById('voice-help-modal');
+      if (modal) modal.classList.remove('hidden');
+    });
+  }
+  
+  if (deadBtn) {
+    deadBtn.addEventListener('click', function() {
+      haptic();
+      const modal = document.getElementById('deadman-modal');
+      if (modal) modal.classList.remove('hidden');
+    });
+  }
 }
 
-// ==================== НАВИГАТОР ====================
 function initNavigator() {
   document.querySelectorAll('.nav-mode-btn').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -654,7 +689,8 @@ function initNavigator() {
       this.classList.add('active');
       
       document.querySelectorAll('.navigator-mode-content').forEach(c => c.classList.remove('active'));
-      document.getElementById('mode-' + mode).classList.add('active');
+      const target = document.getElementById('mode-' + mode);
+      if (target) target.classList.add('active');
       
       if (mode === 'map-to-coords') {
         setTimeout(initPickerMap, 100);
@@ -662,61 +698,68 @@ function initNavigator() {
     });
   });
   
-  document.getElementById('btn-show-on-map').addEventListener('click', function() {
-    haptic();
-    const lat = parseFloat(document.getElementById('input-lat').value);
-    const lng = parseFloat(document.getElementById('input-lng').value);
-    
-    if (isNaN(lat) || isNaN(lng)) {
-      showToast('Введите корректные координаты', 'error');
-      return;
-    }
-    
-    const result = document.getElementById('coords-result-map');
-    result.classList.remove('hidden');
-    
-    setTimeout(() => {
-      if (AppState.maps['map1']) {
-        AppState.maps['map1'].remove();
+  const showBtn = document.getElementById('btn-show-on-map');
+  if (showBtn) {
+    showBtn.addEventListener('click', function() {
+      haptic();
+      const lat = parseFloat(document.getElementById('input-lat').value);
+      const lng = parseFloat(document.getElementById('input-lng').value);
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        showToast('Введите корректные координаты', 'error');
+        return;
       }
       
-      const map = L.map('leaflet-map-1').setView([lat, lng], 15);
+      const result = document.getElementById('coords-result-map');
+      if (result) result.classList.remove('hidden');
       
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '',
-        subdomains: 'abcd',
-        maxZoom: 19
-      }).addTo(map);
+      setTimeout(() => {
+        if (AppState.maps['map1']) {
+          AppState.maps['map1'].remove();
+        }
+        
+        const map = L.map('leaflet-map-1').setView([lat, lng], 15);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '',
+          subdomains: 'abcd',
+          maxZoom: 19
+        }).addTo(map);
+        
+        L.marker([lat, lng]).addTo(map)
+          .bindPopup(`Широта: ${lat}<br>Долгота: ${lng}`)
+          .openPopup();
+        
+        AppState.maps['map1'] = map;
+        
+        const resCoords = document.getElementById('result-coords-1');
+        if (resCoords) resCoords.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      }, 100);
       
-      L.marker([lat, lng]).addTo(map)
-        .bindPopup(`Широта: ${lat}<br>Долгота: ${lng}`)
-        .openPopup();
-      
-      AppState.maps['map1'] = map;
-      document.getElementById('result-coords-1').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    }, 100);
-    
-    AudioEngine.play('success');
+      AudioEngine.play('success');
+    });
+  }
+  
+  document.getElementById('copy-coords-1')?.addEventListener('click', function() {
+    haptic();
+    const text = document.getElementById('result-coords-1')?.textContent;
+    if (text) navigator.clipboard.writeText(text).then(() => showToast('Координаты скопированы'));
   });
   
-  document.getElementById('copy-coords-1').addEventListener('click', function() {
+  document.getElementById('btn-get-coords')?.addEventListener('click', async function() {
     haptic();
-    const text = document.getElementById('result-coords-1').textContent;
-    navigator.clipboard.writeText(text).then(() => showToast('Координаты скопированы'));
-  });
-  
-  document.getElementById('btn-get-coords').addEventListener('click', async function() {
-    haptic();
-    const address = document.getElementById('input-address').value.trim();
+    const address = document.getElementById('input-address')?.value.trim();
     if (!address) {
       showToast('Введите адрес', 'error');
       return;
     }
     
     const btn = document.getElementById('btn-get-coords');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<span>◈ ПОИСК...</span>';
-    btn.disabled = true;
+    const originalText = btn?.innerHTML;
+    if (btn) {
+      btn.innerHTML = '<span>◈ ПОИСК...</span>';
+      btn.disabled = true;
+    }
     
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
@@ -724,132 +767,95 @@ function initNavigator() {
       
       if (data && data.length > 0) {
         const result = data[0];
-        document.getElementById('result-lat').textContent = parseFloat(result.lat).toFixed(6);
-        document.getElementById('result-lng').textContent = parseFloat(result.lon).toFixed(6);
-        document.getElementById('result-full-address').textContent = result.display_name;
-        document.getElementById('address-result').classList.remove('hidden');
+        const resLat = document.getElementById('result-lat');
+        const resLng = document.getElementById('result-lng');
+        const resAddr = document.getElementById('result-full-address');
+        const resBlock = document.getElementById('address-result');
+        
+        if (resLat) resLat.textContent = parseFloat(result.lat).toFixed(6);
+        if (resLng) resLng.textContent = parseFloat(result.lon).toFixed(6);
+        if (resAddr) resAddr.textContent = result.display_name;
+        if (resBlock) resBlock.classList.remove('hidden');
+        
         AudioEngine.play('success');
       } else {
         showToast('Адрес не найден', 'error');
       }
     } catch (err) {
       showToast('Ошибка поиска', 'error');
-      console.log('Geocode error:', err);
     }
     
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  });
-  
-  document.getElementById('copy-address-coords').addEventListener('click', function() {
-    haptic();
-    const lat = document.getElementById('result-lat').textContent;
-    const lng = document.getElementById('result-lng').textContent;
-    navigator.clipboard.writeText(`${lat}, ${lng}`).then(() => showToast('Координаты скопированы'));
-  });
-  
-  document.getElementById('show-address-on-map').addEventListener('click', function() {
-    haptic();
-    const lat = parseFloat(document.getElementById('result-lat').textContent);
-    const lng = parseFloat(document.getElementById('result-lng').textContent);
-    
-    const mapContainer = document.getElementById('leaflet-map-2');
-    mapContainer.classList.remove('hidden');
-    
-    setTimeout(() => {
-      if (AppState.maps['map2']) {
-        AppState.maps['map2'].remove();
-      }
-      
-      const map = L.map('leaflet-map-2').setView([lat, lng], 15);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '',
-        subdomains: 'abcd',
-        maxZoom: 19
-      }).addTo(map);
-      
-      L.marker([lat, lng]).addTo(map);
-      AppState.maps['map2'] = map;
-    }, 100);
-  });
-  
-  window.initPickerMap = function() {
-    if (AppState.maps['picker']) {
-      AppState.maps['picker'].invalidateSize();
-      return;
+    if (btn) {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
     }
-    
-    setTimeout(() => {
-      const map = L.map('leaflet-map-3').setView([55.7558, 37.6173], 10);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '',
-        subdomains: 'abcd',
-        maxZoom: 19
-      }).addTo(map);
-      
-      const marker = L.marker([55.7558, 37.6173], { draggable: true }).addTo(map);
-      
-      marker.on('dragend', async (e) => {
-        const pos = e.target.getLatLng();
-        updatePickerCoords(pos.lat, pos.lng);
-      });
-      
-      map.on('click', (e) => {
-        marker.setLatLng(e.latlng);
-        updatePickerCoords(e.latlng.lat, e.latlng.lng);
-      });
-      
-      AppState.maps['picker'] = map;
-    }, 100);
-  };
-  
-  async function updatePickerCoords(lat, lng) {
-    document.getElementById('picker-lat').textContent = lat.toFixed(6);
-    document.getElementById('picker-lng').textContent = lng.toFixed(6);
-    document.getElementById('picker-result').classList.remove('hidden');
-    
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-      const data = await response.json();
-      document.getElementById('picker-address').textContent = data.display_name || 'Адрес не определён';
-    } catch {
-      document.getElementById('picker-address').textContent = 'Адрес не определён';
-    }
-    
-    AudioEngine.play('success');
-  }
-  
-  document.getElementById('copy-picker-coords').addEventListener('click', function() {
-    haptic();
-    const lat = document.getElementById('picker-lat').textContent;
-    const lng = document.getElementById('picker-lng').textContent;
-    navigator.clipboard.writeText(`${lat}, ${lng}`).then(() => showToast('Координаты скопированы'));
   });
   
-  document.getElementById('use-picker-coords').addEventListener('click', function() {
+  document.getElementById('copy-picker-coords')?.addEventListener('click', function() {
     haptic();
-    document.getElementById('input-lat').value = document.getElementById('picker-lat').textContent;
-    document.getElementById('input-lng').value = document.getElementById('picker-lng').textContent;
-    document.querySelector('[data-mode="coords-to-map"]').click();
+    const lat = document.getElementById('picker-lat')?.textContent;
+    const lng = document.getElementById('picker-lng')?.textContent;
+    if (lat && lng) navigator.clipboard.writeText(`${lat}, ${lng}`).then(() => showToast('Координаты скопированы'));
+  });
+  
+  document.getElementById('use-picker-coords')?.addEventListener('click', function() {
+    haptic();
+    const latEl = document.getElementById('picker-lat');
+    const lngEl = document.getElementById('picker-lng');
+    if (latEl) document.getElementById('input-lat').value = latEl.textContent;
+    if (lngEl) document.getElementById('input-lng').value = lngEl.textContent;
+    document.querySelector('[data-mode="coords-to-map"]')?.click();
     showToast('Координаты перенесены');
-  });
-  
-  document.querySelectorAll('.quick-coord-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      haptic();
-      document.getElementById('input-lat').value = this.dataset.lat;
-      document.getElementById('input-lng').value = this.dataset.lng;
-      document.querySelector('[data-mode="coords-to-map"]').click();
-      document.getElementById('btn-show-on-map').click();
-    });
   });
 }
 
-// ==================== СЕЙСМО ====================
+window.initPickerMap = function() {
+  if (AppState.maps['picker']) {
+    AppState.maps['picker'].invalidateSize();
+    return;
+  }
+  
+  setTimeout(() => {
+    const map = L.map('leaflet-map-3').setView([55.7558, 37.6173], 10);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+    
+    const marker = L.marker([55.7558, 37.6173], { draggable: true }).addTo(map);
+    
+    marker.on('dragend', async (e) => {
+      const pos = e.target.getLatLng();
+      const latEl = document.getElementById('picker-lat');
+      const lngEl = document.getElementById('picker-lng');
+      const res = document.getElementById('picker-result');
+      
+      if (latEl) latEl.textContent = pos.lat.toFixed(6);
+      if (lngEl) lngEl.textContent = pos.lng.toFixed(6);
+      if (res) res.classList.remove('hidden');
+    });
+    
+    map.on('click', (e) => {
+      marker.setLatLng(e.latlng);
+      const latEl = document.getElementById('picker-lat');
+      const lngEl = document.getElementById('picker-lng');
+      const res = document.getElementById('picker-result');
+      
+      if (latEl) latEl.textContent = e.latlng.lat.toFixed(6);
+      if (lngEl) lngEl.textContent = e.latlng.lng.toFixed(6);
+      if (res) res.classList.remove('hidden');
+    });
+    
+    AppState.maps['picker'] = map;
+  }, 100);
+};
+
 function initTremor() {
   const canvas = document.getElementById('seismograph');
-  const ctx = canvas.getContext('2d');
+  if (!canvas) return;
   
+  const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth || 300;
   canvas.height = 180;
   
@@ -857,13 +863,18 @@ function initTremor() {
   const maxHistory = 100;
   let sensitivity = 5;
   
-  document.getElementById('sensitivity').addEventListener('input', function() {
-    sensitivity = parseInt(this.value);
-    document.getElementById('sensitivity-value').textContent = sensitivity;
-    document.getElementById('threshold').textContent = (sensitivity * 0.1).toFixed(2);
-  });
+  const sensInput = document.getElementById('sensitivity');
+  if (sensInput) {
+    sensInput.addEventListener('input', function() {
+      sensitivity = parseInt(this.value);
+      const sensVal = document.getElementById('sensitivity-value');
+      const thresh = document.getElementById('threshold');
+      if (sensVal) sensVal.textContent = sensitivity;
+      if (thresh) thresh.textContent = (sensitivity * 0.1).toFixed(2);
+    });
+  }
   
-  document.getElementById('tremor-start-btn').addEventListener('click', async function() {
+  document.getElementById('tremor-start-btn')?.addEventListener('click', async function() {
     haptic();
     
     if (typeof DeviceMotionEvent !== 'undefined' && 
@@ -880,153 +891,106 @@ function initTremor() {
     }
     
     AppState.tremorActive = true;
-    document.getElementById('tremor-start-btn').classList.add('hidden');
-    document.getElementById('tremor-stop-btn').classList.remove('hidden');
-    document.getElementById('tremor-status-dot').classList.add('active');
-    document.getElementById('tremor-status-text').textContent = 'АКТИВЕН';
+    this.classList.add('hidden');
+    const stopBtn = document.getElementById('tremor-stop-btn');
+    if (stopBtn) stopBtn.classList.remove('hidden');
+    
+    const statusDot = document.getElementById('tremor-status-dot');
+    const statusText = document.getElementById('tremor-status-text');
+    if (statusDot) statusDot.classList.add('active');
+    if (statusText) statusText.textContent = 'АКТИВЕН';
     
     AudioEngine.play('success');
-    startTremorLoop();
-  });
-  
-  document.getElementById('tremor-stop-btn').addEventListener('click', function() {
-    haptic();
-    stopTremor();
-  });
-  
-  function startTremorLoop() {
+    
     window.addEventListener('devicemotion', handleMotion);
-    
-    if (!window.DeviceMotionEvent) {
-      simulateMotion();
-    }
-    
     draw();
-  }
-  
-  function handleMotion(e) {
-    const acc = e.accelerationIncludingGravity;
-    if (!acc) return;
     
-    updateTremorData(acc.x || 0, acc.y || 0, acc.z || 9.8);
-  }
-  
-  function simulateMotion() {
-    if (!AppState.tremorActive) return;
-    
-    const noise = () => (Math.random() - 0.5) * 0.5;
-    const spike = Math.random() > 0.98 ? (Math.random() - 0.5) * sensitivity : 0;
-    
-    updateTremorData(
-      noise() + spike,
-      noise() + spike * 0.5,
-      9.8 + noise() + spike * 0.3
-    );
-    
-    requestAnimationFrame(simulateMotion);
-  }
-  
-  function updateTremorData(x, y, z) {
-    if (historyX.length >= maxHistory) {
-      historyX.shift();
-      historyY.shift();
-      historyZ.shift();
+    function handleMotion(e) {
+      const acc = e.accelerationIncludingGravity;
+      if (!acc) return;
+      
+      if (historyX.length >= maxHistory) {
+        historyX.shift();
+        historyY.shift();
+        historyZ.shift();
+      }
+      historyX.push(acc.x || 0);
+      historyY.push(acc.y || 0);
+      historyZ.push(acc.z || 9.8);
+      
+      const mag = Math.sqrt(acc.x**2 + acc.y**2 + (acc.z-9.8)**2);
+      const magEl = document.getElementById('magnitude');
+      if (magEl) magEl.textContent = mag.toFixed(2);
+      
+      if (mag > sensitivity * 0.1) {
+        addTremorLog(mag.toFixed(2));
+        AudioEngine.play('warning');
+      }
     }
-    historyX.push(x);
-    historyY.push(y);
-    historyZ.push(z);
     
-    const mag = Math.sqrt(x*x + y*y + (z-9.8)*(z-9.8));
-    document.getElementById('magnitude').textContent = mag.toFixed(2);
-    
-    const threshold = sensitivity * 0.1;
-    
-    if (mag > threshold) {
-      addTremorLog(mag.toFixed(2));
-      AudioEngine.play('warning');
+    function addTremorLog(mag) {
+      const container = document.getElementById('tremor-entries');
+      if (!container) return;
+      const empty = container.querySelector('.entry-empty');
+      if (empty) empty.remove();
+      
+      const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+      const entry = document.createElement('div');
+      entry.className = 'tremor-entry';
+      entry.innerHTML = `<span style="color: #888">[${time}]</span> Вибрация ${mag} м/с²`;
+      
+      container.insertBefore(entry, container.firstChild);
+      if (container.children.length > 20) container.removeChild(container.lastChild);
     }
-  }
-  
-  function addTremorLog(mag) {
-    const container = document.getElementById('tremor-entries');
-    const empty = container.querySelector('.entry-empty');
-    if (empty) empty.remove();
     
-    const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
-    const entry = document.createElement('div');
-    entry.className = 'tremor-entry';
-    entry.innerHTML = `<span style="color: #888">[${time}]</span> Вибрация ${mag} м/с²`;
+    function draw() {
+      if (!AppState.tremorActive) return;
+      
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      drawAxis(historyX, '#FF6666', 0, 'X');
+      drawAxis(historyY, '#66FF66', 0, 'Y');
+      drawAxis(historyZ, '#6699FF', 9.8, 'Z');
+      
+      requestAnimationFrame(draw);
+    }
     
-    container.insertBefore(entry, container.firstChild);
-    if (container.children.length > 20) container.removeChild(container.lastChild);
-  }
-  
-  function draw() {
-    if (!AppState.tremorActive) return;
-    
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    const centerY = canvas.height / 2;
-    
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    for (let y = 0; y < canvas.height; y += 20) {
+    function drawAxis(history, color, offset, label) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      
+      for (let i = 0; i < history.length; i++) {
+        const x = (i / maxHistory) * canvas.width;
+        const val = history[i] - offset;
+        const y = canvas.height / 2 + val * (canvas.height / 25);
+        
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
       ctx.stroke();
     }
-    
-    drawAxis(historyX, '#FF6666', 0, 'X');
-    drawAxis(historyY, '#66FF66', 0, 'Y');
-    drawAxis(historyZ, '#6699FF', 9.8, 'Z');
-    
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.beginPath();
-    ctx.moveTo(0, centerY);
-    ctx.lineTo(canvas.width, centerY);
-    ctx.stroke();
-    
-    AppState.tremorAnimationId = requestAnimationFrame(draw);
-  }
+  });
   
-  function drawAxis(history, color, offset, label) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    
-    for (let i = 0; i < history.length; i++) {
-      const x = (i / maxHistory) * canvas.width;
-      const val = history[i] - offset;
-      const y = canvas.height / 2 + val * (canvas.height / 25);
-      
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    
-    if (history.length > 0) {
-      ctx.fillStyle = color;
-      ctx.font = '10px JetBrains Mono';
-      const lastVal = history[history.length - 1] - offset;
-      ctx.fillText(label, canvas.width - 20, canvas.height / 2 + lastVal * (canvas.height / 25) - 5);
-    }
-  }
-  
-  window.stopTremor = function() {
+  document.getElementById('tremor-stop-btn')?.addEventListener('click', function() {
+    haptic();
     AppState.tremorActive = false;
-    window.removeEventListener('devicemotion', handleMotion);
-    cancelAnimationFrame(AppState.tremorAnimationId);
+    this.classList.add('hidden');
+    const startBtn = document.getElementById('tremor-start-btn');
+    if (startBtn) startBtn.classList.remove('hidden');
     
-    document.getElementById('tremor-start-btn').classList.remove('hidden');
-    document.getElementById('tremor-stop-btn').classList.add('hidden');
-    document.getElementById('tremor-status-dot').classList.remove('active');
-    document.getElementById('tremor-status-text').textContent = 'ОЖИДАНИЕ';
-    document.getElementById('tremor-entries').innerHTML = '<div class="entry-empty">Анализ не запущен</div>';
-  };
+    const statusDot = document.getElementById('tremor-status-dot');
+    const statusText = document.getElementById('tremor-status-text');
+    if (statusDot) statusDot.classList.remove('active');
+    if (statusText) statusText.textContent = 'ОЖИДАНИЕ';
+  });
 }
 
-// ==================== АУДИО РЕКОРДЕР (с IndexedDB) ====================
+function stopTremor() {
+  AppState.tremorActive = false;
+}
+
 function initAudioRecorder() {
   let mediaRecorder = null;
   let audioChunks = [];
@@ -1035,7 +999,10 @@ function initAudioRecorder() {
   
   initAudioRingBuffer();
   
-  document.getElementById('record-btn').addEventListener('click', async function() {
+  const recordBtn = document.getElementById('record-btn');
+  if (!recordBtn) return;
+  
+  recordBtn.addEventListener('click', async function() {
     haptic();
     
     if (!AppState.isRecording) {
@@ -1064,41 +1031,50 @@ function initAudioRecorder() {
         AppState.isRecording = true;
         startTime = Date.now();
         
-        document.getElementById('record-btn').classList.add('recording');
-        document.getElementById('record-btn').innerHTML = '<span class="record-icon">⏹</span><span class="record-text">СТОП</span>';
-        document.getElementById('audio-status-dot').classList.add('active');
-        document.getElementById('audio-status-dot').style.background = 'var(--danger)';
-        document.getElementById('audio-status-text').textContent = 'ЗАПИСЬ';
+        this.classList.add('recording');
+        this.innerHTML = '<span class="record-icon">⏹</span><span class="record-text">СТОП</span>';
+        
+        const statusDot = document.getElementById('audio-status-dot');
+        const statusText = document.getElementById('audio-status-text');
+        if (statusDot) {
+          statusDot.classList.add('active');
+          statusDot.style.background = 'var(--danger)';
+        }
+        if (statusText) statusText.textContent = 'ЗАПИСЬ';
         
         AudioEngine.play('recordStart');
         
-        timerInterval = setInterval(updateTimer, 1000);
-        updateTimer();
-        
-        visualizeAudio(stream);
+        timerInterval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+          const s = String(elapsed % 60).padStart(2, '0');
+          const timer = document.getElementById('audio-timer');
+          if (timer) timer.textContent = `${m}:${s}`;
+        }, 1000);
         
       } catch (err) {
         showToast('Доступ к микрофону запрещён', 'error');
       }
     } else {
-      mediaRecorder.stop();
+      if (mediaRecorder) mediaRecorder.stop();
       AppState.isRecording = false;
       clearInterval(timerInterval);
       
-      document.getElementById('record-btn').classList.remove('recording');
-      document.getElementById('record-btn').innerHTML = '<span class="record-icon">●</span><span class="record-text">ЗАПИСЬ</span>';
-      document.getElementById('audio-status-dot').classList.remove('active');
-      document.getElementById('audio-status-text').textContent = 'ГОТОВ';
-      document.getElementById('audio-timer').textContent = '00:00';
+      this.classList.remove('recording');
+      this.innerHTML = '<span class="record-icon">●</span><span class="record-text">ЗАПИСЬ</span>';
+      
+      const statusDot = document.getElementById('audio-status-dot');
+            const statusText = document.getElementById('audio-status-text');
+      const timer = document.getElementById('audio-timer');
+      
+      if (statusDot) {
+        statusDot.classList.remove('active');
+        statusDot.style.background = '';
+      }
+      if (statusText) statusText.textContent = 'ГОТОВ';
+      if (timer) timer.textContent = '00:00';
     }
   });
-  
-  function updateTimer() {
-    const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
-    const s = String(elapsed % 60).padStart(2, '0');
-    document.getElementById('audio-timer').textContent = `${m}:${s}`;
-  }
   
   loadAudioRecords();
 }
@@ -1126,9 +1102,7 @@ function initAudioRingBuffer() {
     recorder.start(100);
     AppState.ringBufferRecorder = recorder;
     AppState.ringBufferStream = stream;
-  }).catch(() => {
-    console.log('Ring buffer: mic not available');
-  });
+  }).catch(() => {});
 }
 
 function addToRingBuffer(data) {}
@@ -1150,6 +1124,8 @@ async function getAudioBufferSlice(seconds) {
 
 async function loadAudioRecords() {
   const list = document.getElementById('records-list');
+  if (!list) return;
+  
   const records = await AudioDB.getRecords(20);
   
   if (records.length === 0) {
@@ -1182,12 +1158,13 @@ async function loadAudioRecords() {
     btn.addEventListener('click', function() {
       haptic();
       AppState.currentRecordId = parseInt(this.dataset.id);
-      document.getElementById('record-menu-modal').classList.remove('hidden');
+      const modal = document.getElementById('record-menu-modal');
+      if (modal) modal.classList.remove('hidden');
     });
   });
 }
 
-document.getElementById('download-record-btn').addEventListener('click', async function() {
+document.getElementById('download-record-btn')?.addEventListener('click', async function() {
   haptic();
   const records = await AudioDB.getRecords();
   const rec = records.find(r => r.id === AppState.currentRecordId);
@@ -1201,17 +1178,19 @@ document.getElementById('download-record-btn').addEventListener('click', async f
     document.body.removeChild(a);
     showToast('Скачивание началось');
   }
-  document.getElementById('record-menu-modal').classList.add('hidden');
+  const modal = document.getElementById('record-menu-modal');
+  if (modal) modal.classList.add('hidden');
 });
 
-document.getElementById('delete-record-btn').addEventListener('click', async function() {
+document.getElementById('delete-record-btn')?.addEventListener('click', async function() {
   haptic();
   if (confirm('Удалить запись?')) {
     await AudioDB.deleteRecord(AppState.currentRecordId);
     loadAudioRecords();
     showToast('Запись удалена');
   }
-  document.getElementById('record-menu-modal').classList.add('hidden');
+  const modal = document.getElementById('record-menu-modal');
+  if (modal) modal.classList.add('hidden');
 });
 
 function formatDuration(sec) {
@@ -1220,54 +1199,12 @@ function formatDuration(sec) {
   return `${m}:${s}`;
 }
 
-function visualizeAudio(stream) {
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const analyser = audioContext.createAnalyser();
-  const source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  
-  const canvas = document.getElementById('audio-waveform');
-  const ctx = canvas.getContext('2d');
-  
-  function draw() {
-    if (!AppState.isRecording) {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      return;
-    }
-    
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(dataArray);
-    
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.fillStyle = '#00E5FF';
-    const barWidth = canvas.width / dataArray.length;
-    
-    for (let i = 0; i < dataArray.length; i++) {
-      const barHeight = (dataArray[i] / 255) * canvas.height;
-      ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth, barHeight);
-    }
-    
-    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-    document.getElementById('level-fill').style.width = (average / 2.55) + '%';
-    document.getElementById('level-text').textContent = '-' + Math.floor(60 - average / 4) + ' dB';
-    
-    requestAnimationFrame(draw);
-  }
-  
-  draw();
-}
-
 // ==================== ЛОГИ ====================
 function initLogs() {
   loadLogs();
-  
-  document.getElementById('logs-clear-all').addEventListener('click', function() {
+  document.getElementById('logs-clear-all')?.addEventListener('click', function() {
     haptic();
     if (!confirm('Удалить ВСЕ логи?')) return;
-    
     localStorage.removeItem('INCIDENT_LOGS');
     loadLogs();
     AudioEngine.play('alert');
@@ -1276,6 +1213,8 @@ function initLogs() {
 
 function loadLogs() {
   const list = document.getElementById('logs-list');
+  if (!list) return;
+  
   const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
   
   if (logs.length === 0) {
@@ -1302,7 +1241,8 @@ function loadLogs() {
     btn.addEventListener('click', function() {
       haptic();
       AppState.currentLogId = parseInt(this.dataset.id);
-      document.getElementById('log-menu-modal').classList.remove('hidden');
+      const modal = document.getElementById('log-menu-modal');
+      if (modal) modal.classList.remove('hidden');
     });
   });
   
@@ -1314,7 +1254,7 @@ function loadLogs() {
   });
 }
 
-document.getElementById('download-log-btn').addEventListener('click', function() {
+document.getElementById('download-log-btn')?.addEventListener('click', function() {
   haptic();
   const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
   const log = logs.find(l => l.id === AppState.currentLogId);
@@ -1327,10 +1267,11 @@ document.getElementById('download-log-btn').addEventListener('click', function()
     document.body.removeChild(a);
     showToast('Скачивание началось');
   }
-  document.getElementById('log-menu-modal').classList.add('hidden');
+  const modal = document.getElementById('log-menu-modal');
+  if (modal) modal.classList.add('hidden');
 });
 
-document.getElementById('delete-log-btn').addEventListener('click', function() {
+document.getElementById('delete-log-btn')?.addEventListener('click', function() {
   haptic();
   if (confirm('Удалить этот лог?')) {
     const logs = JSON.parse(localStorage.getItem('INCIDENT_LOGS') || '[]');
@@ -1339,7 +1280,8 @@ document.getElementById('delete-log-btn').addEventListener('click', function() {
     loadLogs();
     showToast('Лог удалён');
   }
-  document.getElementById('log-menu-modal').classList.add('hidden');
+  const modal = document.getElementById('log-menu-modal');
+  if (modal) modal.classList.add('hidden');
 });
 
 function playLogAudio(id) {
@@ -1352,21 +1294,25 @@ function playLogAudio(id) {
   }
   
   const modal = document.getElementById('log-player-modal');
-  document.getElementById('log-player-info').textContent = `Лог от ${log.time} | ${log.gps}`;
-  document.getElementById('log-audio-player').src = log.audioData;
-  modal.classList.remove('hidden');
+  const info = document.getElementById('log-player-info');
+  const player = document.getElementById('log-audio-player');
+  
+  if (info) info.textContent = `Лог от ${log.time} | ${log.gps}`;
+  if (player) player.src = log.audioData;
+  if (modal) modal.classList.remove('hidden');
 }
 
 // ==================== ОБОРУДОВАНИЕ ====================
 function initEquipment() {
   loadEquipment();
   
-  document.getElementById('equip-add-btn').addEventListener('click', function() {
+  document.getElementById('equip-add-btn')?.addEventListener('click', function() {
     haptic();
-    document.getElementById('equipment-connect').classList.toggle('hidden');
+    const connect = document.getElementById('equipment-connect');
+    if (connect) connect.classList.toggle('hidden');
   });
   
-  document.getElementById('equip-scan-btn').addEventListener('click', async function() {
+  document.getElementById('equip-scan-btn')?.addEventListener('click', async function() {
     haptic();
     showToast('Сканирование сети...');
     
@@ -1378,7 +1324,6 @@ function initEquipment() {
     AppState.equipment = found;
     localStorage.setItem('EQUIPMENT', JSON.stringify(found));
     loadEquipment();
-    
     showToast(`Найдено устройств: ${found.length}`);
   });
 }
@@ -1386,8 +1331,9 @@ function initEquipment() {
 function loadEquipment() {
   const cameras = document.getElementById('cameras-list');
   const lights = document.getElementById('lights-list');
-  const equipment = JSON.parse(localStorage.getItem('EQUIPMENT') || '[]');
+  if (!cameras || !lights) return;
   
+  const equipment = JSON.parse(localStorage.getItem('EQUIPMENT') || '[]');
   const cams = equipment.filter(e => e.type === 'camera');
   const ligs = equipment.filter(e => e.type === 'light');
   
@@ -1430,9 +1376,7 @@ async function toggleEquipment(id) {
       body: JSON.stringify({ action: item.isOn ? 'on' : 'off' }),
       mode: 'no-cors'
     });
-  } catch {
-    // Offline
-  }
+  } catch {}
   
   if (item.battery < 20 && !item.batteryWarningSent) {
     item.batteryWarningSent = true;
@@ -1448,7 +1392,7 @@ async function toggleEquipment(id) {
 function initPulse() {
   loadPulseDevices();
   
-  document.getElementById('pulse-connect-btn').addEventListener('click', async function() {
+  document.getElementById('pulse-connect-btn')?.addEventListener('click', async function() {
     haptic();
     
     if (!('bluetooth' in navigator)) {
@@ -1472,7 +1416,6 @@ function initPulse() {
         const value = e.target.value;
         const hr = value.getUint8(1);
         const battery = 85;
-        
         updatePulseDevice(device.name, hr, battery);
       });
       
@@ -1502,6 +1445,7 @@ function simulatePulseDevice() {
 
 function updatePulseDevice(name, hr, battery) {
   const container = document.getElementById('pulse-devices');
+  if (!container) return;
   
   let existing = container.querySelector(`[data-name="${name}"]`);
   
@@ -1540,8 +1484,8 @@ function loadPulseDevices() {}
 function initChat() {
   loadChatHistory();
   
-  document.getElementById('chat-send').addEventListener('click', sendChatMessage);
-  document.getElementById('chat-input').addEventListener('keypress', (e) => {
+  document.getElementById('chat-send')?.addEventListener('click', sendChatMessage);
+  document.getElementById('chat-input')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendChatMessage();
   });
   
@@ -1551,6 +1495,7 @@ function initChat() {
 function loadChatHistory() {
   const history = JSON.parse(localStorage.getItem('CHAT_HISTORY') || '[]');
   const container = document.getElementById('chat-messages');
+  if (!container) return;
   
   container.innerHTML = `
     <div class="chat-system">
@@ -1567,7 +1512,7 @@ function loadChatHistory() {
 function sendChatMessage() {
   haptic();
   const input = document.getElementById('chat-input');
-  const text = input.value.trim();
+  const text = input?.value.trim();
   if (!text || !AppState.user) return;
   
   if (WebRTCChat.connected && WebRTCChat.sendMessage(text)) {
@@ -1581,7 +1526,7 @@ function sendChatMessage() {
       isWebRTC: true
     };
     addMessageToChat(msg, true);
-    input.value = '';
+    if (input) input.value = '';
     AudioEngine.play('message');
     return;
   }
@@ -1607,12 +1552,13 @@ function sendChatMessage() {
     ghostDB.sendMessage(AppState.user.id, AppState.user.name, AppState.user.role, text);
   }
   
-  input.value = '';
+  if (input) input.value = '';
   AudioEngine.play('message');
 }
 
 function addMessageToChat(msg, animate) {
   const container = document.getElementById('chat-messages');
+  if (!container) return;
   
   const div = document.createElement('div');
   div.className = `chat-message ${msg.outgoing ? 'outgoing' : 'incoming'} ${msg.isAlarm ? 'alarm' : ''} ${msg.isWebRTC ? 'webrtc' : ''}`;
@@ -1680,7 +1626,7 @@ function initVoiceCommand() {
   
   let isListening = false;
   
-  document.getElementById('start-voice').addEventListener('click', function() {
+  document.getElementById('start-voice')?.addEventListener('click', function() {
     haptic();
     
     if (!isListening) {
@@ -1689,7 +1635,7 @@ function initVoiceCommand() {
         isListening = true;
         AppState.isVoiceActive = true;
         this.textContent = '[ ВЫКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ ]';
-        document.getElementById('voice-cmd-btn').classList.add('active');
+        document.getElementById('voice-cmd-btn')?.classList.add('active');
         showToast('Голосовое управление активно');
         AudioEngine.play('success');
       } catch (e) {
@@ -1700,7 +1646,7 @@ function initVoiceCommand() {
       isListening = false;
       AppState.isVoiceActive = false;
       this.textContent = '[ ВКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ ]';
-      document.getElementById('voice-cmd-btn').classList.remove('active');
+      document.getElementById('voice-cmd-btn')?.classList.remove('active');
     }
   });
   
@@ -1714,52 +1660,53 @@ function initVoiceCommand() {
       setTimeout(() => {
         try {
           recognition.start();
-        } catch (err) {
-          console.log('Voice restart failed:', err);
-        }
+        } catch (err) {}
       }, 500);
     }
   };
   
   recognition.onerror = (event) => {
-    console.log('Voice error:', event.error);
     if (event.error === 'not-allowed') {
       showToast('Доступ к микрофону запрещён', 'error');
       AppState.isVoiceActive = false;
-      document.getElementById('start-voice').textContent = '[ ВКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ ]';
-      document.getElementById('voice-cmd-btn').classList.remove('active');
+      const btn = document.getElementById('start-voice');
+      if (btn) btn.textContent = '[ ВКЛЮЧИТЬ ГОЛОСОВОЕ УПРАВЛЕНИЕ ]';
+      document.getElementById('voice-cmd-btn')?.classList.remove('active');
     }
   };
 }
 
 function processVoiceCommand(command) {
   const statusEl = document.getElementById('voice-status');
+  if (!statusEl) return;
+  
   statusEl.classList.remove('hidden');
   statusEl.classList.add('active');
-  statusEl.querySelector('.voice-text').textContent = `РАСПОЗНАНО: "${command}"`;
+  const textEl = statusEl.querySelector('.voice-text');
+  if (textEl) textEl.textContent = `РАСПОЗНАНО: "${command}"`;
   
   if (command.includes('лог')) {
-    document.getElementById('incident-btn').click();
+    document.getElementById('incident-btn')?.click();
     speakResponse('Событие зафиксировано');
   } else if (command.includes('ночь') || command.includes('темно')) {
     const btn = document.getElementById('night-ops-btn');
-    if (!btn.classList.contains('active')) btn.click();
+    if (btn && !btn.classList.contains('active')) btn.click();
     speakResponse('Ночной режим активирован');
   } else if (command.includes('день') || command.includes('светло')) {
     const btn = document.getElementById('night-ops-btn');
-    if (btn.classList.contains('active')) btn.click();
+    if (btn && btn.classList.contains('active')) btn.click();
     speakResponse('Ночной режим отключён');
   } else if (command.includes('звук') || command.includes('начать')) {
     const btn = document.getElementById('record-btn');
-    if (!AppState.isRecording) btn.click();
+    if (btn && !AppState.isRecording) btn.click();
     speakResponse('Запись начата');
   } else if (command.includes('стоп')) {
     const btn = document.getElementById('record-btn');
-    if (AppState.isRecording) btn.click();
+    if (btn && AppState.isRecording) btn.click();
     speakResponse('Запись остановлена');
   } else if (command.includes('статус')) {
-    const gps = document.getElementById('gps').textContent;
-    const time = document.getElementById('clock').textContent;
+    const gps = document.getElementById('gps')?.textContent;
+    const time = document.getElementById('clock')?.textContent;
     speakResponse(`Время ${time}. Координаты ${gps}`);
   }
   
@@ -1787,39 +1734,41 @@ function initDeadManSwitch() {
   const resetBtn = document.getElementById('reset-timer');
   const stopBtn = document.getElementById('stop-timer');
   const miniReset = document.getElementById('mini-reset');
-  const timerDisplay = document.getElementById('deadman-timer');
-  const miniTimer = document.getElementById('mini-timer');
-  const statusEl = document.getElementById('deadman-status');
   
-  document.getElementById('deadman-btn').addEventListener('click', function() {
+  document.getElementById('deadman-btn')?.addEventListener('click', function() {
     haptic();
-    modal.classList.remove('hidden');
+    if (modal) modal.classList.remove('hidden');
   });
   
-  modal.querySelector('.close-btn').addEventListener('click', function() {
+  modal?.querySelector('.close-btn')?.addEventListener('click', function() {
     haptic();
-    modal.classList.add('hidden');
+    if (modal) modal.classList.add('hidden');
   });
   
-  modal.querySelector('.modal-overlay').addEventListener('click', function() {
-    modal.classList.add('hidden');
+  modal?.querySelector('.modal-overlay')?.addEventListener('click', function() {
+    if (modal) modal.classList.add('hidden');
   });
   
-  startBtn.addEventListener('click', function() {
+  startBtn?.addEventListener('click', function() {
     haptic();
     AudioEngine.play('alert');
     AppState.deadManActive = true;
     AppState.deadManTimeLeft = 600;
     
-    startBtn.classList.add('hidden');
-    resetBtn.classList.remove('hidden');
-    stopBtn.classList.remove('hidden');
+    if (startBtn) startBtn.classList.add('hidden');
+    if (resetBtn) resetBtn.classList.remove('hidden');
+    if (stopBtn) stopBtn.classList.remove('hidden');
     
-    statusEl.innerHTML = '<span class="status-icon">▶</span><span class="status-text">ПРОТОКОЛ АКТИВЕН</span>';
-    statusEl.style.color = 'var(--danger)';
+    const statusEl = document.getElementById('deadman-status');
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="status-icon">▶</span><span class="status-text">ПРОТОКОЛ АКТИВЕН</span>';
+      statusEl.style.color = 'var(--danger)';
+    }
     
-    document.getElementById('deadman-mini').classList.remove('hidden');
-    document.getElementById('deadman-btn').classList.add('active');
+    const mini = document.getElementById('deadman-mini');
+    const deadBtn = document.getElementById('deadman-btn');
+    if (mini) mini.classList.remove('hidden');
+    if (deadBtn) deadBtn.classList.add('active');
     
     updateTimerDisplay();
     
@@ -1840,7 +1789,7 @@ function initDeadManSwitch() {
     }, 1000);
   });
   
-  resetBtn.addEventListener('click', function() {
+  resetBtn?.addEventListener('click', function() {
     haptic();
     AudioEngine.play('success');
     AppState.deadManTimeLeft = 600;
@@ -1848,7 +1797,7 @@ function initDeadManSwitch() {
     showToast('Таймер сброшен на 10:00');
   });
   
-  miniReset.addEventListener('click', function() {
+  miniReset?.addEventListener('click', function() {
     haptic();
     AudioEngine.play('success');
     AppState.deadManTimeLeft = 600;
@@ -1856,53 +1805,54 @@ function initDeadManSwitch() {
     showToast('Таймер сброшен');
   });
   
-  stopBtn.addEventListener('click', function() {
+  stopBtn?.addEventListener('click', function() {
     haptic();
     AudioEngine.play('click');
     clearInterval(AppState.deadManTimerInterval);
     AppState.deadManActive = false;
     
-    startBtn.classList.remove('hidden');
-    resetBtn.classList.add('hidden');
-    stopBtn.classList.add('hidden');
+    if (startBtn) startBtn.classList.remove('hidden');
+    if (resetBtn) resetBtn.classList.add('hidden');
+    if (stopBtn) stopBtn.classList.add('hidden');
     
-    statusEl.innerHTML = '<span class="status-icon">⏸</span><span class="status-text">ОЖИДАНИЕ АКТИВАЦИИ</span>';
-    statusEl.style.color = '';
+    const statusEl = document.getElementById('deadman-status');
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="status-icon">⏸</span><span class="status-text">ОЖИДАНИЕ АКТИВАЦИИ</span>';
+      statusEl.style.color = '';
+    }
     
-    document.getElementById('deadman-mini').classList.add('hidden');
-    document.getElementById('deadman-btn').classList.remove('active');
+    const mini = document.getElementById('deadman-mini');
+    const deadBtn = document.getElementById('deadman-btn');
+    if (mini) mini.classList.add('hidden');
+    if (deadBtn) deadBtn.classList.remove('active');
     
     AppState.deadManTimeLeft = 600;
     updateTimerDisplay();
   });
   
   function updateTimerDisplay() {
+    const timerDisplay = document.getElementById('deadman-timer');
+    const miniTimer = document.getElementById('mini-timer');
     const timeStr = formatTime(AppState.deadManTimeLeft);
     
-    timerDisplay.textContent = timeStr;
-    miniTimer.textContent = timeStr;
+    if (timerDisplay) timerDisplay.textContent = timeStr;
+    if (miniTimer) miniTimer.textContent = timeStr;
     
     if (AppState.deadManTimeLeft < 60) {
-      timerDisplay.classList.add('warning');
-      miniTimer.style.color = 'var(--warning)';
+      if (timerDisplay) timerDisplay.classList.add('warning');
+      if (miniTimer) miniTimer.style.color = 'var(--warning)';
     } else {
-      timerDisplay.classList.remove('warning');
-      miniTimer.style.color = '';
+      if (timerDisplay) timerDisplay.classList.remove('warning');
+      if (miniTimer) miniTimer.style.color = '';
     }
-  }
-  
-  function formatTime(seconds) {
-    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const s = String(seconds % 60).padStart(2, '0');
-    return `${m}:${s}`;
   }
   
   async function triggerDeadManAlarm() {
     clearInterval(AppState.deadManTimerInterval);
     AudioEngine.play('alert');
     
-    const gps = document.getElementById('gps').textContent;
-    const time = document.getElementById('clock').textContent;
+    const gps = document.getElementById('gps')?.textContent || '--.---- --.----';
+    const time = document.getElementById('clock')?.textContent || '--:--:--';
     const pulse = AppState.user?.pulse || '--';
     
     const audioData = await getAudioBufferSlice(10);
@@ -1943,12 +1893,18 @@ function initDeadManSwitch() {
     }
     
     setTimeout(() => {
-      stopBtn.click();
+      if (stopBtn) stopBtn.click();
     }, 10000);
   }
 }
 
-// ==================== СЛЕЖКА (STALKER RADAR) ====================
+function formatTime(seconds) {
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+// ==================== СЛЕЖКА (STALKER RADAR) - ИСПРАВЛЕННЫЙ ====================
 const StalkerRadar = {
   mode: 'start',
   isActive: false,
@@ -1958,52 +1914,118 @@ const StalkerRadar = {
   devices: new Map(),
   ownDevices: new Set(),
   scanStartTime: null,
+  perimeterInterval: null,
   
   init() {
+    console.log('[Stalker] Initializing...');
     this.loadOwnDevices();
     this.bindUI();
-    // При старте показываем начальный экран
-    this.switchScreen('start');
   },
   
   loadOwnDevices() {
-    const saved = localStorage.getItem('STALKER_OWN_DEVICES');
-    if (saved) {
-      const devices = JSON.parse(saved);
-      devices.forEach(d => this.ownDevices.add(d.mac));
+    try {
+      const saved = localStorage.getItem('STALKER_OWN_DEVICES');
+      if (saved) {
+        const devices = JSON.parse(saved);
+        devices.forEach(d => this.ownDevices.add(d.mac));
+      }
+    } catch (e) {
+      console.log('[Stalker] Error loading devices:', e);
     }
   },
   
   saveOwnDevices() {
-    const devices = Array.from(this.ownDevices).map(mac => ({
-      mac,
-      name: localStorage.getItem(`device_name_${mac}`) || 'Unknown'
-    }));
-    localStorage.setItem('STALKER_OWN_DEVICES', JSON.stringify(devices));
+    try {
+      const devices = Array.from(this.ownDevices).map(mac => ({
+        mac,
+        name: localStorage.getItem(`device_name_${mac}`) || 'Unknown'
+      }));
+      localStorage.setItem('STALKER_OWN_DEVICES', JSON.stringify(devices));
+    } catch (e) {
+      console.log('[Stalker] Error saving devices:', e);
+    }
   },
   
   bindUI() {
-    document.getElementById('stalker-start-btn').addEventListener('click', () => this.startPerimeter());
-    document.getElementById('perimeter-done-btn').addEventListener('click', () => this.finishPerimeter());
-    document.getElementById('center-scan-btn').addEventListener('click', () => this.startScanning());
-    document.getElementById('stalker-new-scan-btn').addEventListener('click', () => this.reset());
-    document.getElementById('stalker-settings-btn').addEventListener('click', () => {
-      document.getElementById('stalker-settings-modal').classList.remove('hidden');
-      this.renderOwnDevices();
-    });
+    console.log('[Stalker] Binding UI...');
     
-    document.getElementById('add-own-device-btn').addEventListener('click', () => {
-      const mac = document.getElementById('new-device-mac').value.trim();
-      const name = document.getElementById('new-device-name').value.trim();
-      if (mac) {
-        this.ownDevices.add(mac);
-        if (name) localStorage.setItem(`device_name_${mac}`, name);
-        this.saveOwnDevices();
-        this.renderOwnDevices();
-        document.getElementById('new-device-mac').value = '';
-        document.getElementById('new-device-name').value = '';
-      }
-    });
+    const startBtn = document.getElementById('stalker-start-btn');
+    const doneBtn = document.getElementById('perimeter-done-btn');
+    const scanBtn = document.getElementById('center-scan-btn');
+    const newScanBtn = document.getElementById('stalker-new-scan-btn');
+    const settingsBtn = document.getElementById('stalker-settings-btn');
+    const addDeviceBtn = document.getElementById('add-own-device-btn');
+    
+    if (startBtn) {
+      startBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[Stalker] Start button clicked');
+        this.startPerimeter();
+      });
+    }
+    
+    if (doneBtn) {
+      doneBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[Stalker] Done button clicked');
+        this.finishPerimeter();
+      });
+    }
+    
+    if (scanBtn) {
+      scanBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[Stalker] Scan button clicked');
+        this.startScanning();
+      });
+    }
+    
+    if (newScanBtn) {
+      newScanBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[Stalker] New scan button clicked');
+        this.reset();
+      });
+    }
+    
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const modal = document.getElementById('stalker-settings-modal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          this.renderOwnDevices();
+        }
+      });
+    }
+    
+    if (addDeviceBtn) {
+      addDeviceBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const macInput = document.getElementById('new-device-mac');
+        const nameInput = document.getElementById('new-device-name');
+        
+        if (macInput) {
+          const mac = macInput.value.trim();
+          const name = nameInput ? nameInput.value.trim() : '';
+          
+          if (mac) {
+            this.ownDevices.add(mac);
+            if (name) localStorage.setItem(`device_name_${mac}`, name);
+            this.saveOwnDevices();
+            this.renderOwnDevices();
+            macInput.value = '';
+            if (nameInput) nameInput.value = '';
+          }
+        }
+      });
+    }
     
     window.addEventListener('deviceorientation', (e) => {
       if (e.alpha !== null) {
@@ -2013,63 +2035,39 @@ const StalkerRadar = {
     });
   },
   
-  renderOwnDevices() {
-    const list = document.getElementById('own-devices-list');
-    if (this.ownDevices.size === 0) {
-      list.innerHTML = '<div class="devices-empty">Нет добавленных устройств</div>';
-      return;
-    }
-    
-    list.innerHTML = Array.from(this.ownDevices).map(mac => `
-      <div class="own-device-item">
-        <div class="device-info">
-          <div class="device-mac">${mac}</div>
-          <div class="device-name">${localStorage.getItem(`device_name_${mac}`) || 'Unknown'}</div>
-        </div>
-        <button class="remove-device-btn" data-mac="${mac}">×</button>
-      </div>
-    `).join('');
-    
-    list.querySelectorAll('.remove-device-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        this.ownDevices.delete(e.target.dataset.mac);
-        this.saveOwnDevices();
-        this.renderOwnDevices();
-      });
-    });
-  },
-  
   switchScreen(screenName) {
-    // Скрываем ВСЕ экраны stalker (добавляем hidden)
-    document.querySelectorAll('.stalker-screen').forEach(s => {
-      s.classList.remove('active');
-      s.classList.add('hidden');
-    });
+    console.log('[Stalker] Switching to:', screenName);
     
-    // Показываем нужный (убираем hidden, добавляем active)
-    const target = document.getElementById(`stalker-${screenName}`);
-    if (target) {
-      target.classList.remove('hidden');
-      target.classList.add('active');
-      console.log(`[Stalker] Screen: ${screenName}`);
-    } else {
-      console.error(`[Stalker] Screen not found: stalker-${screenName}`);
-    }
+    const screens = ['start', 'perimeter', 'center', 'scanning', 'results'];
+    
+    screens.forEach(s => {
+      const el = document.getElementById('stalker-' + s);
+      if (el) {
+        if (s === screenName) {
+          el.classList.remove('hidden');
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+          el.classList.add('hidden');
+        }
+      }
+    });
     
     this.mode = screenName;
   },
   
-  async startPerimeter() {
+  startPerimeter() {
+    console.log('[Stalker] Starting perimeter...');
     haptic();
     this.perimeterPath = [];
     this.currentPosition = { x: 0, y: 0, heading: 0 };
     
-    if (window.DeviceMotionEvent) {
-      window.addEventListener('devicemotion', this.handleMotion.bind(this));
-    }
-    
     this.switchScreen('perimeter');
     this.isActive = true;
+    
+    if (this.perimeterInterval) {
+      clearInterval(this.perimeterInterval);
+    }
     
     let steps = 0;
     this.perimeterInterval = setInterval(() => {
@@ -2084,6 +2082,16 @@ const StalkerRadar = {
       if (fillEl) fillEl.style.width = Math.min(100, (steps / 50) * 100) + '%';
       if (percentEl) percentEl.textContent = Math.min(100, Math.floor((steps / 50) * 100)) + '%';
     }, 1000);
+    
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().then(permissionState => {
+        if (permissionState === 'granted') {
+          window.addEventListener('devicemotion', this.handleMotion.bind(this));
+        }
+      }).catch(console.error);
+    } else if (window.DeviceMotionEvent) {
+      window.addEventListener('devicemotion', this.handleMotion.bind(this));
+    }
   },
   
   handleMotion(e) {
@@ -2114,9 +2122,13 @@ const StalkerRadar = {
   },
   
   finishPerimeter() {
+    console.log('[Stalker] Finishing perimeter...');
     haptic();
-    clearInterval(this.perimeterInterval);
-    window.removeEventListener('devicemotion', this.handleMotion.bind(this));
+    
+    if (this.perimeterInterval) {
+      clearInterval(this.perimeterInterval);
+      this.perimeterInterval = null;
+    }
     
     if (this.perimeterPath.length > 0) {
       let sumX = 0, sumY = 0;
@@ -2130,7 +2142,6 @@ const StalkerRadar = {
       };
     }
     
-    // Обновляем статус готовности
     const gpsStatus = document.getElementById('center-gps-status');
     const orientStatus = document.getElementById('center-orient-status');
     if (gpsStatus) gpsStatus.textContent = '✓';
@@ -2139,13 +2150,13 @@ const StalkerRadar = {
     this.switchScreen('center');
   },
   
-  async startScanning() {
+  startScanning() {
+    console.log('[Stalker] Starting scanning...');
     haptic();
     this.switchScreen('scanning');
     this.devices.clear();
     this.scanStartTime = Date.now();
-
-    // Запускаем таймер
+    
     let seconds = 10;
     const timerEl = document.getElementById('scan-timer');
     
@@ -2157,35 +2168,19 @@ const StalkerRadar = {
         this.finishScanning();
       }
     }, 1000);
-
-    // Анимация луча
+    
     const beam = document.getElementById('scan-beam');
     if (beam) {
-      beam.style.animation = 'scanRotate 10s linear infinite';
-    }
-
-    // Пытаемся найти реальные устройства (Bluetooth)
-    try {
-      if ('bluetooth' in navigator) {
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['battery_service']
-        });
-        
-        this.addDevice({
-          mac: device.id,
-          name: device.name || 'Unknown Device',
-          rssi: -70 + Math.floor(Math.random() * 20),
-          heading: this.currentPosition.heading,
-          time: Date.now()
-        });
-      }
-    } catch (err) {
-      console.log('Bluetooth not available:', err);
-      // Продолжаем работу без Bluetooth
+      beam.style.animation = 'none';
+      setTimeout(() => {
+        beam.style.animation = 'scanRotate 10s linear infinite';
+      }, 10);
     }
     
-    // Добавляем симуляционные устройства
+    this.tryBluetooth().catch(() => {
+      console.log('[Stalker] Bluetooth not available');
+    });
+    
     for (let i = 0; i < 5; i++) {
       setTimeout(() => {
         if (this.mode === 'scanning') {
@@ -2193,15 +2188,37 @@ const StalkerRadar = {
             mac: 'sim-' + i,
             name: ['Mi Band', 'AirTag', 'Samsung', 'Unknown', 'iPhone'][i],
             rssi: -40 - Math.floor(Math.random() * 40),
-            heading: Math.random() * 360,
+            heading: (this.currentPosition.heading + i * 45) % 360,
             time: Date.now()
           });
         }
-      }, i * 2000 + 1000); // Начинаем через 1 секунду
+      }, i * 1500 + 500);
+    }
+  },
+  
+  async tryBluetooth() {
+    if ('bluetooth' in navigator) {
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['battery_service']
+        });
+        
+        this.addDevice({
+          mac: device.id,
+          name: device.name || 'BT Device',
+          rssi: -60 + Math.floor(Math.random() * 20),
+          heading: this.currentPosition.heading,
+          time: Date.now()
+        });
+      } catch (e) {
+        console.log('[Stalker] Bluetooth error:', e);
+      }
     }
   },
   
   addDevice(device) {
+    console.log('[Stalker] Device found:', device.name);
     const existing = this.devices.get(device.mac);
     if (existing) {
       existing.rssi = (existing.rssi + device.rssi) / 2;
@@ -2272,6 +2289,7 @@ const StalkerRadar = {
   },
   
   finishScanning() {
+    console.log('[Stalker] Finishing scan...');
     this.switchScreen('results');
     this.updatePolarMap('results-devices-layer');
     
@@ -2310,25 +2328,70 @@ const StalkerRadar = {
         this.ownDevices.add(mac);
         localStorage.setItem(`device_name_${mac}`, name);
         this.saveOwnDevices();
-        this.finishScanning(); // Перерисовываем
+        this.finishScanning();
         showToast('Устройство добавлено в белый список');
       });
     });
   },
   
+  renderOwnDevices() {
+    const list = document.getElementById('own-devices-list');
+    if (!list) return;
+    
+    if (this.ownDevices.size === 0) {
+      list.innerHTML = '<div class="devices-empty">Нет добавленных устройств</div>';
+      return;
+    }
+    
+    list.innerHTML = Array.from(this.ownDevices).map(mac => `
+      <div class="own-device-item">
+        <div class="device-info">
+          <div class="device-mac">${mac}</div>
+          <div class="device-name">${localStorage.getItem(`device_name_${mac}`) || 'Unknown'}</div>
+        </div>
+        <button class="remove-device-btn" data-mac="${mac}">×</button>
+      </div>
+    `).join('');
+    
+    list.querySelectorAll('.remove-device-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.ownDevices.delete(e.target.dataset.mac);
+        this.saveOwnDevices();
+        this.renderOwnDevices();
+      });
+    });
+  },
+  
   reset() {
+    console.log('[Stalker] Resetting...');
     this.devices.clear();
     this.perimeterPath = [];
+    if (this.perimeterInterval) {
+      clearInterval(this.perimeterInterval);
+      this.perimeterInterval = null;
+    }
     this.switchScreen('start');
   },
   
   stop() {
     this.isActive = false;
-    clearInterval(this.perimeterInterval);
+    if (this.perimeterInterval) {
+      clearInterval(this.perimeterInterval);
+      this.perimeterInterval = null;
+    }
   }
 };
 
-// ==================== WEBRTC P2P CHAT - ИСПРАВЛЕННЫЙ ====================
+function initStalker() {
+  console.log('[App] initStalker called');
+  try {
+    StalkerRadar.init();
+  } catch (e) {
+    console.error('[App] Error initializing Stalker:', e);
+  }
+}
+
+// ==================== WEBRTC P2P CHAT ====================
 const WebRTCChat = {
   peer: null,
   dataChannel: null,
@@ -2350,34 +2413,37 @@ const WebRTCChat = {
   },
   
   initUI() {
-    document.getElementById('chat-mode-wifi').addEventListener('click', () => {
+    document.getElementById('chat-mode-wifi')?.addEventListener('click', () => {
       haptic();
       this.openWebRTCModal();
     });
     
-    document.getElementById('chat-mode-bt').addEventListener('click', () => {
+    document.getElementById('chat-mode-bt')?.addEventListener('click', () => {
       haptic();
-      document.getElementById('bluetooth-modal').classList.remove('hidden');
+      const modal = document.getElementById('bluetooth-modal');
+      if (modal) modal.classList.remove('hidden');
     });
     
-    document.getElementById('chat-mode-lora').addEventListener('click', () => {
+    document.getElementById('chat-mode-lora')?.addEventListener('click', () => {
       haptic();
-      document.getElementById('lora-modal').classList.remove('hidden');
+      const modal = document.getElementById('lora-modal');
+      if (modal) modal.classList.remove('hidden');
     });
     
-    document.getElementById('webrtc-settings-btn').addEventListener('click', () => {
+    document.getElementById('webrtc-settings-btn')?.addEventListener('click', () => {
       haptic();
       this.openWebRTCModal();
     });
     
-    document.getElementById('webrtc-disconnect').addEventListener('click', () => {
+    document.getElementById('webrtc-disconnect')?.addEventListener('click', () => {
       haptic();
       this.disconnect();
     });
     
     document.querySelectorAll('#webrtc-modal .close-btn, #webrtc-modal .modal-overlay').forEach(el => {
       el.addEventListener('click', () => {
-        document.getElementById('webrtc-modal').classList.add('hidden');
+        const modal = document.getElementById('webrtc-modal');
+        if (modal) modal.classList.add('hidden');
         this.currentPanel = 'menu';
       });
     });
@@ -2385,45 +2451,62 @@ const WebRTCChat = {
   
   openWebRTCModal() {
     const modal = document.getElementById('webrtc-modal');
-    modal.classList.remove('hidden');
-    this.showPanel('menu');
+    if (modal) {
+      modal.classList.remove('hidden');
+      this.showPanel('menu');
+    }
   },
   
   showPanel(panel) {
     this.currentPanel = panel;
     
-    document.getElementById('webrtc-menu-panel').classList.add('hidden');
-    document.getElementById('webrtc-create-panel').classList.add('hidden');
-    document.getElementById('webrtc-join-panel').classList.add('hidden');
+    ['menu', 'create', 'join'].forEach(p => {
+      const el = document.getElementById('webrtc-' + p + '-panel');
+      if (el) el.classList.add('hidden');
+    });
     
-    document.getElementById(`webrtc-${panel}-panel`).classList.remove('hidden');
+    const target = document.getElementById('webrtc-' + panel + '-panel');
+    if (target) target.classList.remove('hidden');
     
     const titles = {
       'menu': '◈ P2P WEBRTC CONNECT',
       'create': '◈ СОЗДАТЬ КОМНАТУ',
       'join': '◈ ПОДКЛЮЧИТЬСЯ'
     };
-    document.querySelector('#webrtc-modal .modal-title').textContent = titles[panel];
+    
+    const titleEl = document.querySelector('#webrtc-modal .modal-title');
+    if (titleEl) titleEl.textContent = titles[panel];
     
     if (panel === 'menu') {
-      document.getElementById('webrtc-create-action').onclick = () => {
-        haptic();
-        this.showPanel('create');
-        this.startRoomCreation();
-      };
+      const createBtn = document.getElementById('webrtc-create-action');
+      const joinBtn = document.getElementById('webrtc-join-action');
       
-      document.getElementById('webrtc-join-action').onclick = () => {
-        haptic();
-        this.showPanel('join');
-        document.getElementById('webrtc-join-input').focus();
-      };
+      if (createBtn) {
+        createBtn.onclick = () => {
+          haptic();
+          this.showPanel('create');
+          this.startRoomCreation();
+        };
+      }
+      
+      if (joinBtn) {
+        joinBtn.onclick = () => {
+          haptic();
+          this.showPanel('join');
+          const input = document.getElementById('webrtc-join-input');
+          if (input) input.focus();
+        };
+      }
     }
     
     if (panel === 'join') {
-      document.getElementById('webrtc-confirm-join').onclick = () => {
-        haptic();
-        this.confirmJoin();
-      };
+      const confirmBtn = document.getElementById('webrtc-confirm-join');
+      if (confirmBtn) {
+        confirmBtn.onclick = () => {
+          haptic();
+          this.confirmJoin();
+        };
+      }
     }
   },
   
@@ -2431,8 +2514,11 @@ const WebRTCChat = {
     this.roomId = this.generateRoomId();
     this.isHost = true;
     
-    document.getElementById('webrtc-room-id-display').textContent = this.roomId;
-    document.getElementById('webrtc-room-status').textContent = 'Ожидание подключения...';
+    const idDisplay = document.getElementById('webrtc-room-id-display');
+    const status = document.getElementById('webrtc-room-status');
+    
+    if (idDisplay) idDisplay.textContent = this.roomId;
+    if (status) status.textContent = 'Ожидание подключения...';
     
     this.generateQR(this.roomId);
     this.setupPeerConnection();
@@ -2455,7 +2541,8 @@ const WebRTCChat = {
   },
   
   async confirmJoin() {
-    const inputId = document.getElementById('webrtc-join-input').value.trim();
+    const input = document.getElementById('webrtc-join-input');
+    const inputId = input?.value.trim();
     
     if (!inputId || inputId.length !== 6) {
       showToast('Введите 6-значный ID комнаты', 'error');
@@ -2467,7 +2554,9 @@ const WebRTCChat = {
     
     this.setupPeerConnection();
     
-    document.getElementById('webrtc-modal').classList.add('hidden');
+    const modal = document.getElementById('webrtc-modal');
+    if (modal) modal.classList.add('hidden');
+    
     showToast('Ожидание хоста...');
     
     this.showChatInterface();
@@ -2482,41 +2571,50 @@ const WebRTCChat = {
   },
   
   showChatInterface() {
-    document.getElementById('chat-mode-selector').classList.add('hidden');
-    document.getElementById('chat-interface').classList.remove('hidden');
-    document.getElementById('webrtc-disconnect').classList.remove('hidden');
+    const selector = document.getElementById('chat-mode-selector');
+    const chatInterface = document.getElementById('chat-interface');
+    const disconnectBtn = document.getElementById('webrtc-disconnect');
+    
+    if (selector) selector.classList.add('hidden');
+    if (chatInterface) chatInterface.classList.remove('hidden');
+    if (disconnectBtn) disconnectBtn.classList.remove('hidden');
   },
   
   showModeSelector() {
-    document.getElementById('chat-mode-selector').classList.remove('hidden');
-    document.getElementById('chat-interface').classList.add('hidden');
-    document.getElementById('webrtc-disconnect').classList.add('hidden');
+    const selector = document.getElementById('chat-mode-selector');
+    const chatInterface = document.getElementById('chat-interface');
+    const disconnectBtn = document.getElementById('webrtc-disconnect');
+    const status = document.getElementById('chat-network-status');
     
-    const statusEl = document.getElementById('chat-network-status');
-    statusEl.textContent = 'OFFLINE';
-    statusEl.style.color = '';
+    if (selector) selector.classList.remove('hidden');
+    if (chatInterface) chatInterface.classList.add('hidden');
+    if (disconnectBtn) disconnectBtn.classList.add('hidden');
+    if (status) {
+      status.textContent = 'OFFLINE';
+      status.style.color = '';
+    }
   },
   
   updateConnectionStatus(status) {
     const statusEl = document.getElementById('webrtc-status');
-    const textEl = statusEl.querySelector('.status-text');
-    const dotEl = statusEl.querySelector('.status-dot');
+    if (!statusEl) return;
     
+    const textEl = statusEl.querySelector('.status-text');
     statusEl.classList.remove('connecting', 'connected', 'offline');
     
     switch(status) {
       case 'connecting':
         statusEl.classList.add('connecting');
-        textEl.textContent = 'ПОДКЛЮЧЕНИЕ...';
+        if (textEl) textEl.textContent = 'ПОДКЛЮЧЕНИЕ...';
         break;
       case 'connected':
         statusEl.classList.add('connected');
-        textEl.textContent = 'P2P CONNECTED';
+        if (textEl) textEl.textContent = 'P2P CONNECTED';
         break;
       case 'offline':
       default:
         statusEl.classList.add('offline');
-        textEl.textContent = 'OFFLINE';
+        if (textEl) textEl.textContent = 'OFFLINE';
     }
   },
   
@@ -2540,8 +2638,6 @@ const WebRTCChat = {
     
     this.peer.onconnectionstatechange = () => {
       const state = this.peer.connectionState;
-      console.log('WebRTC state:', state);
-      
       if (state === 'connected') {
         this.onConnected();
       } else if (state === 'disconnected' || state === 'failed') {
@@ -2662,9 +2758,11 @@ const WebRTCChat = {
       outgoing: false,
       isSystem: true
     };
+    
     addMessageToChat(sysMsg, true);
     
-    document.getElementById('webrtc-modal').classList.add('hidden');
+    const modal = document.getElementById('webrtc-modal');
+    if (modal) modal.classList.add('hidden');
     
     AudioEngine.play('success');
     showToast('P2P соединение установлено!');
@@ -2685,8 +2783,8 @@ const WebRTCChat = {
       outgoing: false,
       isSystem: true
     };
-    addMessageToChat(sysMsg, true);
     
+    addMessageToChat(sysMsg, true);
     showToast('Соединение разорвано', 'error');
   },
   
@@ -2747,6 +2845,8 @@ const WebRTCChat = {
   
   generateQR(text) {
     const container = document.getElementById('webrtc-qr-code');
+    if (!container) return;
+    
     container.innerHTML = '';
     
     if (typeof QRCode !== 'undefined') {
@@ -2805,19 +2905,21 @@ function showPushNotification(title, body) {
   }
 }
 
+// Закрытие модалок
 document.querySelectorAll('.modal .close-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     haptic();
-    this.closest('.modal').classList.add('hidden');
+    this.closest('.modal')?.classList.add('hidden');
   });
 });
 
 document.querySelectorAll('.modal .modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', function() {
-    this.closest('.modal').classList.add('hidden');
+    this.closest('.modal')?.classList.add('hidden');
   });
 });
 
+// Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js')
     .then(reg => console.log('SW registered:', reg))
@@ -2825,3 +2927,4 @@ if ('serviceWorker' in navigator) {
 }
 
 console.log('GHOST-HUB v3.1 loaded');
+
