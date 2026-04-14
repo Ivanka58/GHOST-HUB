@@ -13,10 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       
       - name: Setup Capacitor v8
         run: |
@@ -400,7 +400,7 @@ jobs:
           - Полярная карта с реальными RSSI и расстоянием
           - Белый список устройств
           - Исправлены вылеты при нажатии кнопок
-          - Обновлено до Capacitor 8 для совместимости с BLE плагином
+          - Обновлено до Capacitor 8 и Node.js 22
           
           Требования:
           - Android 7.0+ (API 24)
