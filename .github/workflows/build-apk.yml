@@ -18,14 +18,14 @@ jobs:
         with:
           node-version: 20
       
-      - name: Setup Capacitor
+      - name: Setup Capacitor v8
         run: |
           npm init -y
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8
       
       - name: Install Bluetooth LE Plugin
         run: |
-          npm install @capacitor-community/bluetooth-le
+          npm install @capacitor-community/bluetooth-le@8
       
       - name: Prepare web files
         run: |
@@ -400,6 +400,7 @@ jobs:
           - Полярная карта с реальными RSSI и расстоянием
           - Белый список устройств
           - Исправлены вылеты при нажатии кнопок
+          - Обновлено до Capacitor 8 для совместимости с BLE плагином
           
           Требования:
           - Android 7.0+ (API 24)
