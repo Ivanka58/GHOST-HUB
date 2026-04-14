@@ -23,6 +23,10 @@ jobs:
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
       
+      - name: Install Bluetooth LE Plugin
+        run: |
+          npm install @capacitor-community/bluetooth-le
+      
       - name: Prepare web files
         run: |
           mkdir -p www
@@ -68,6 +72,14 @@ jobs:
                 "style": "DARK",
                 "backgroundColor": "#0A0A0A",
                 "overlaysWebView": false
+              },
+              "BluetoothLe": {
+                "displayStrings": {
+                  "scanning": "Сканирование BLE...",
+                  "cancel": "Отмена",
+                  "availableDevices": "Доступные устройства",
+                  "noDeviceFound": "Устройства не найдены"
+                }
               }
             }
           }
@@ -75,6 +87,9 @@ jobs:
       
       - name: Add Android platform
         run: npx cap add android
+      
+      - name: Sync Capacitor with plugins
+        run: npx cap sync android
       
       - name: Fix Android variables
         run: |
@@ -112,24 +127,30 @@ jobs:
           }
           EOF
       
-      - name: Setup permissions for Android
+      - name: Setup permissions for Android (BLE + Location)
         run: |
           cat > android/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <!-- Bluetooth LE разрешения для Android 12+ (API 31+) -->
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" 
+                  android:usesPermissionFlags="neverForLocation" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+              
+              <!-- Location для Android 11 и ниже (и для некоторых случаев BLE) -->
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+              
+              <!-- Основные разрешения -->
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
               <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-              <uses-permission android:name="android.permission.BLUETOOTH" />
-              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.VIBRATE" />
@@ -137,6 +158,9 @@ jobs:
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+              
+              <!-- Feature declarations -->
+              <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
               
               <application
                   android:allowBackup="true"
@@ -219,14 +243,12 @@ jobs:
       
       - name: Create splash screen drawable
         run: |
-          # Удаляем проблемные land-specific папки если они есть
           rm -rf android/app/src/main/res/drawable-land-*
           
           mkdir -p android/app/src/main/res/drawable
           rm -f android/app/src/main/res/drawable/splash.png
           rm -f android/app/src/main/res/drawable/splash.xml
           
-          # Создаем splash drawable как XML (рекомендуется)
           cat > android/app/src/main/res/drawable/splash.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -381,26 +403,19 @@ jobs:
           Дата сборки: ${{ github.run_id }}
           Коммит: ${{ github.sha }}
           
-          ИСПРАВЛЕННЫЕ ОШИБКИ:
-          - Приложение больше не вылетает при входе
-          - Голосовое управление работает корректно
-          - Dead Man Switch (10 мин) работает
-          - Чат полностью функционален
-          - Сейсмо-анализатор: порог работает, кнопка остановки работает
-          - Навигатор: адрес→координаты и карта→координаты работают
-          - Карта заменена на нейтральную (без флагов)
-          - Оборудование и пульс: кнопки подключения работают
-          - Жучки: реальный Bluetooth сканер + компас + позиция
-          - Аудио: реальная запись, скачивание MP3 работает
-          - Кнопка назад работает корректно (не закрывает приложение)
-          - Виброотклик на все кнопки
-          - Push-уведомления настроены
+          ИЗМЕНЕНИЯ:
+          - РЕАЛЬНОЕ Bluetooth LE сканирование через @capacitor-community/bluetooth-le
+          - Обход периметра с компасом и шагомером
+          - Полярная карта с реальными RSSI и расстоянием
+          - Белый список устройств
+          - Исправлены вылеты при нажатии кнопок
           
           Требования:
           - Android 7.0+ (API 24)
-          - Разрешения: геолокация, микрофон, Bluetooth, уведомления, вибрация
+          - Bluetooth LE (BLE 4.0+)
+          - Разрешения: Bluetooth, Location, Microphone, Sensors
           
-          Подпись: самоподписанный сертификат (debug/release)
+          Подпись: самоподписанный сертификат
           EOF
       
       - name: Upload Release Info
